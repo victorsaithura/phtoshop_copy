@@ -1,4 +1,4 @@
-import { h, clear } from './dom.js';
+import { h, clear, revealInList } from './dom.js';
 
 /** History panel: every undoable step; click one to jump to that state. */
 export class HistoryPanel {
@@ -24,6 +24,6 @@ export class HistoryPanel {
       if (i === hist.index) current = item;
       this.el.append(item);
     });
-    current?.scrollIntoView({ block: 'nearest' });
+    revealInList(this.el, current);
   }
 }

@@ -33,12 +33,8 @@ export class Toolbar {
     for (let i = 0; i < TOOL_GROUPS.length; i++) {
       const group = TOOL_GROUPS[i];
       if (!group || !group.some((id) => this.app.tools.get(id)?.key === key)) continue;
-      const active = this.app.tool?.id;
-      if (cycle && group.includes(active)) {
-        this.app.setTool(group[(group.indexOf(active) + 1) % group.length]);
-      } else {
-        this.app.setTool(this.current.get(i) || group[0]);
-      }
+      const shown = this.current.get(i) || group[0];
+      this.app.setTool(cycle ? group[(group.indexOf(shown) + 1) % group.length] : shown);
       return true;
     }
     return false;

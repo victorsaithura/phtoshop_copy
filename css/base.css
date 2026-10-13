@@ -91,6 +91,7 @@ svg { display: block; }
   min-height: 0;
   display: flex;
   position: relative;
+  overflow: clip; /* the off-screen panel drawer must never make the page scroll */
 }
 
 #toolbar {

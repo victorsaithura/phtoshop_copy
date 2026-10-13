@@ -28,6 +28,15 @@ function append(el, children) {
   }
 }
 
+/** Scroll `container` just enough to show `el`, without scrolling the page. */
+export function revealInList(container, el) {
+  if (!container || !el) return;
+  const c = container.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  if (r.top < c.top) container.scrollTop -= c.top - r.top;
+  else if (r.bottom > c.bottom) container.scrollTop += r.bottom - c.bottom;
+}
+
 export function clear(el) {
   while (el.firstChild) el.firstChild.remove();
   return el;

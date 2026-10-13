@@ -1,4 +1,4 @@
-import { h, clear, selectInput, iconButton } from './dom.js';
+import { h, clear, selectInput, iconButton, revealInList } from './dom.js';
 import { icon } from './icons.js';
 import { BLEND_MODES } from '../core/layer.js';
 import { clamp, debounce } from '../core/utils.js';
@@ -107,7 +107,7 @@ export class LayersPanel {
     if (!doc) return;
     for (let i = doc.layers.length - 1; i >= 0; i--) this.list.append(this._row(doc, doc.layers[i]));
     this.updateThumbs(true);
-    this.list.querySelector('.layer-row.active')?.scrollIntoView({ block: 'nearest' });
+    revealInList(this.list, this.list.querySelector('.layer-row.active'));
   }
 
   _row(doc, layer) {
