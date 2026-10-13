@@ -121,7 +121,7 @@ export function setupAutosave(app) {
     queue = queue.then(saveAll, saveAll);
     return queue;
   };
-  const later = debounce(saveNow, 1500);
+  const later = debounce(saveNow, 2000);
   app.on('history', later);
   app.on('document', later);
   document.addEventListener('visibilitychange', () => {

@@ -138,6 +138,11 @@ export class LayersPanel {
     const doc = this.app.doc;
     this._syncControls();
     if (!doc) return;
+    // When another layer becomes active, open the groups around it so its row shows.
+    if (doc.activeId !== this.shownActive) {
+      this.shownActive = doc.activeId;
+      for (let p = doc.activeLayer?.parent; p; p = p.parent) p.collapsed = false;
+    }
     for (let i = doc.layers.length - 1; i >= 0; i--) {
       if (shown(doc.layers[i])) this.list.append(this._row(doc, doc.layers[i]));
     }

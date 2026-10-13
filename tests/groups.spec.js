@@ -1,4 +1,4 @@
-import { test, expect, newDoc, drag, compositePixel, currentLabel, close } from './helpers.js';
+import { test, expect, newDoc, drag, compositePixel, currentLabel, close, screenPoint } from './helpers.js';
 
 /** White background, a red square (Layer 1) and a blue square (Layer 2) on their own layers. */
 async function twoSquares(page) {
@@ -150,4 +150,20 @@ test('painting tools refuse a group but paint on its mask', async ({ page }) => 
   await drag(page, [250, 60], [250, 140], { steps: 4 });
   expect(await currentLabel(page)).toBe('Brush');
   expect(await compositePixel(page, 250, 100)).toEqual([255, 255, 255, 255]);
+});
+
+test('selecting a layer inside a collapsed group opens the group', async ({ page }) => {
+  await twoSquares(page);
+  await page.keyboard.press('Control+g');
+  await page.click('.layer-row.group .layer-twist');
+  await expect(page.locator('.layer-row')).toHaveCount(3);
+  // Auto-select with the Move tool picks the blue square inside the group.
+  await page.keyboard.press('v');
+  await page.keyboard.down('Control');
+  const p = await screenPoint(page, 250, 100);
+  await page.mouse.click(p.x, p.y);
+  await page.keyboard.up('Control');
+  expect(await page.evaluate(() => photoforge.doc.activeLayer.name)).toBe('Layer 2');
+  await expect(page.locator('.layer-row')).toHaveCount(4);
+  await expect(page.locator('.layer-row.active')).toContainText('Layer 2');
 });
