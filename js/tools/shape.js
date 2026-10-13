@@ -51,14 +51,16 @@ export class ShapeTool extends Tool {
   }
 
   onPointerDown(e) {
-    this.drag = { x0: e.x, y0: e.y, x1: e.x, y1: e.y, constrain: false, center: false };
+    const p = this.app.snapPoint(e.x, e.y);
+    this.drag = { x0: p.x, y0: p.y, x1: p.x, y1: p.y, constrain: false, center: false };
   }
 
   onPointerMove(e) {
     const d = this.drag;
     if (!d) return;
-    d.x1 = e.x;
-    d.y1 = e.y;
+    const p = this.app.snapPoint(e.x, e.y);
+    d.x1 = p.x;
+    d.y1 = p.y;
     d.constrain = e.shift;
     d.center = e.alt;
   }

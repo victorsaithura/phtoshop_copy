@@ -210,8 +210,10 @@ export function createActions(app, getMenus) {
   }, { enabled: hasDoc, shortcut: 'Ctrl+V', keys: [] });
   def('edit.clear', 'Clear', () => {
     if (editingMask(app)) {
-      // On a mask: hide the selected area, or remove the mask when nothing is selected.
+      // On a mask: hide the selected area, or remove the mask when nothing is selected
+      // (in Quick Mask mode, clear the whole quick mask instead).
       if (hasSel()) editMask(app, 'Clear', doc().selection.bounds, () => 0);
+      else if (doc().quickMask) editMask(app, 'Clear', doc().bounds, () => 0);
       else A['mask.delete'].run();
       return;
     }

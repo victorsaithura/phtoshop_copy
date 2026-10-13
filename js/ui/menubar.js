@@ -46,7 +46,12 @@ export const MENUS = [
       'layer.lock', 'layer.hide', '-', 'layer.front', 'layer.forward', 'layer.backward', 'layer.back', '-',
       'layer.selectUp', 'layer.selectDown', '-', 'layer.mergeDown', 'layer.mergeVisible', 'layer.flatten'],
   },
-  { label: 'Select', items: ['select.all', 'select.deselect', 'select.reselect', 'select.inverse', '-', 'select.layerPixels'] },
+  {
+    label: 'Select',
+    items: ['select.all', 'select.deselect', 'select.reselect', 'select.inverse', '-', 'select.colorRange', '-',
+      { label: 'Modify', items: ['select.border', 'select.smooth', 'select.expand', 'select.contract', 'select.feather'] },
+      '-', 'select.layerPixels', '-', 'select.quickMask'],
+  },
   {
     label: 'Filter',
     items: ['filter.last', '-',
@@ -58,7 +63,13 @@ export const MENUS = [
       { label: 'Stylize', items: ['filter.emboss', 'filter.findEdges'] },
       { label: 'Other', items: ['filter.highPass'] }],
   },
-  { label: 'View', items: ['view.zoomIn', 'view.zoomOut', 'view.fit', 'view.actual', 'view.fill', '-', 'view.panels'] },
+  {
+    label: 'View',
+    items: ['view.zoomIn', 'view.zoomOut', 'view.fit', 'view.actual', 'view.fill', '-',
+      { label: 'Show', items: ['view.grid', 'view.guides'] }, 'view.rulers', '-',
+      'view.snap', { label: 'Snap To', items: ['view.snapGuides', 'view.snapGrid', 'view.snapDocument'] }, '-',
+      'view.lockGuides', 'view.clearGuides', 'view.newGuide', 'view.gridSettings', '-', 'view.panels'],
+  },
   { label: 'Help', items: ['help.shortcuts', 'help.about'] },
 ];
 
@@ -111,26 +122,31 @@ export class MenuBar {
 
   _list(items) {
     const list = h('div', { class: 'menu-dropdown', role: 'menu' });
+    // Menus with checkable items keep a check-mark column on every row, so labels line up.
+    const checks = items.some((it) => typeof it === 'string' && this.app.actions[it]?.checked);
     for (const item of items) {
       if (item === '-') list.append(h('div', { class: 'menu-sep' }));
-      else if (typeof item === 'object') list.append(this._submenu(item, list));
+      else if (typeof item === 'object') list.append(this._submenu(item, list, checks));
       else {
         const a = this.app.actions[item];
         if (!a) continue;
+        const checked = a.checked ? a.checked() : null;
         list.append(h('button', {
-          type: 'button', class: 'menu-item', role: 'menuitem', disabled: !!(a.enabled && !a.enabled()),
+          type: 'button', class: 'menu-item', role: a.checked ? 'menuitemcheckbox' : 'menuitem',
+          'aria-checked': a.checked ? String(checked) : null, disabled: !!(a.enabled && !a.enabled()),
           onClick: () => {
             this.close();
             a.run();
           },
-        }, h('span', {}, a.dynamicLabel ? a.dynamicLabel() : a.label),
+        }, h('span', {}, checks ? h('span', { class: 'menu-check' }, checked ? '✓' : '') : null,
+          a.dynamicLabel ? a.dynamicLabel() : a.label),
         h('span', { class: 'menu-shortcut' }, formatShortcut(a.shortcut))));
       }
     }
     return list;
   }
 
-  _submenu(item, parentList) {
+  _submenu(item, parentList, checks = false) {
     const sub = this._list(item.items);
     sub.classList.add('sub');
     const enabled = flatten(item.items).some((id) => {
@@ -138,7 +154,7 @@ export class MenuBar {
       return a && (!a.enabled || a.enabled());
     });
     const trigger = h('button', { type: 'button', class: 'menu-item', role: 'menuitem', 'aria-haspopup': 'true', disabled: !enabled },
-      h('span', {}, item.label), h('span', { class: 'menu-arrow' }, '▸'));
+      h('span', {}, checks ? h('span', { class: 'menu-check' }) : null, item.label), h('span', { class: 'menu-arrow' }, '▸'));
     const wrap = h('div', { class: 'menu-sub' }, trigger, sub);
     const open = (on) => {
       for (const other of parentList.querySelectorAll(':scope > .menu-sub.open')) if (other !== wrap) other.classList.remove('open');

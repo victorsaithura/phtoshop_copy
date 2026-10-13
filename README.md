@@ -86,6 +86,21 @@ Adjustments and filters apply to the active layer, limited to the selection when
 - Click the mask thumbnail to edit it: paint black to hide, white to reveal; Fill, Gradient and Invert work on masks too
 - Shift-click the mask thumbnail to switch it off; masks move and transform with their layer
 
+**Selections**
+- Select ▸ Modify: Expand, Contract, Smooth, Border and Feather (Shift+F6)
+- Select ▸ Color Range: click colours in the preview (Shift-click adds more) with Fuzziness, or pick Reds, Yellows, Greens, Cyans, Blues, Magentas, Highlights, Midtones or Shadows; Invert
+- Quick Mask (Q, or the button under the colour swatches): the selection turns into a red overlay you paint with any brush, fill or gradient (black removes, white adds); press Q again to get the selection back
+
+**Rulers, guides and grid** (View menu)
+- Rulers (Ctrl+R): drag from a ruler to add a guide; with the Move tool (or Ctrl held) drag a guide to move it, or back onto the ruler to delete it. Show/hide guides (Ctrl+;), Lock Guides, Clear Guides, New Guide…
+- Grid (Ctrl+') with Grid Settings… (spacing and subdivisions)
+- Snap (Ctrl+Shift+;) to guides, the grid and the document edges: the Move tool, marquees, shapes, the crop box and new guides snap
+- Guides are saved in projects and follow Image Size, Canvas Size, crops, flips and quarter turns
+
+**Panels**
+- Color, Navigator (thumbnail with the visible area; click or drag to move, zoom slider) and Info (position, colour under the pointer, selection size) share one tabbed group
+- History and Histogram (Colors, Luminosity or one channel, with mean, standard deviation, median and pixel count; follows the selection) share another
+
 **Editing**
 - Undo/redo (last 60 steps) and a History panel to jump to any step
 - Free Transform (Ctrl+T, or Ctrl+Alt+T where the browser keeps Ctrl+T): scale, rotate and move a layer with handles
@@ -102,8 +117,9 @@ Press **?** inside the app for the full list of keyboard shortcuts. On a Mac, us
 - **Phase 2 (done):** adjustments, filters, crop, image and canvas size, rotation and flips.
 - **Phase 3 (done):** lasso and magic wand, healing and clone tools, dodge/burn/sponge, blur/sharpen/smudge, type, shapes, layer masks, Free Transform, project files.
 - **Phase 4 (done):** layer groups, adjustment layers, layer styles, PSD open/save, offline use and installing, autosave and recovery.
+- **Phase 5 (done):** rulers, guides, grid and snapping; Select ▸ Modify, Color Range and Quick Mask; Navigator, Info and Histogram panels.
 
-Ideas for later: rulers, guides and snapping; Select ▸ Modify, Color Range and Quick Mask; Liquify and Content-Aware Fill; perspective and warp transforms; a Pen tool and vector shapes.
+Ideas for later: Liquify and Content-Aware Fill; perspective and warp transforms; distort filters; a Pen tool and vector shapes.
 
 Known limitation: adjustment layers are recalculated when the image is redrawn, so dragging whole layers in very large images (tens of megapixels) with adjustment layers above them can feel slow.
 
@@ -131,6 +147,9 @@ js/io.js              open, place, paste, export
 js/actions-image.js   Image and Filter menu commands
 js/actions-mask.js    layer mask commands
 js/actions-layers.js  groups, adjustment layers and layer styles
+js/actions-precision.js  View ▸ rulers/grid/guides/snap, Select ▸ Modify, Color Range, Quick Mask
+js/guides.js          rulers, guides, grid and snapping
+js/quick-mask.js      Quick Mask mode
 js/project.js         .pfp project save/open
 js/psd.js             Photoshop .psd reader and writer
 js/autosave.js        autosave to the browser and recovery

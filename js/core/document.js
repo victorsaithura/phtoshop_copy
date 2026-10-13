@@ -59,6 +59,8 @@ export class PSDocument {
     this.layerCounter = 0;
     this.groupCounter = 0;
     this.selection = new Selection(this.width, this.height);
+    this.guides = []; // { o: 'h' | 'v', p: position } (View ▸ rulers and guides)
+    this.quickMask = null; // stand-in layer while in Quick Mask mode (quick-mask.js)
     this.scratches = [];
 
     if (background === 'transparent') {
@@ -434,6 +436,7 @@ export class PSDocument {
         activeId: this.activeId,
         width: this.width,
         height: this.height,
+        guides: this.guides.map((g) => ({ ...g })),
         props: this.layers.map((l) => ({
           layer: l, name: l.name, visible: l.visible, opacity: l.opacity,
           blendMode: l.blendMode, locked: l.locked, parent: l.parent,
@@ -458,6 +461,7 @@ export class PSDocument {
       this.activeId = st.activeId;
       this.width = st.width;
       this.height = st.height;
+      this.guides = st.guides.map((g) => ({ ...g }));
       for (const p of st.props) {
         // Positions are deliberately not restored here: layers may have grown
         // since (which shifts x/y but not content). Moves record deltas instead.
