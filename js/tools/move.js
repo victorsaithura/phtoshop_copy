@@ -2,8 +2,9 @@ import { Tool } from './tool.js';
 import { createCanvas, rectUnion } from '../core/utils.js';
 
 /**
- * Move Tool. Drags the active layer, or the selected pixels when there is a
- * selection (Alt-drag moves a copy). Arrow keys nudge by 1px (Shift: 10px).
+ * Move Tool. Drags the active layer (a group moves with its contents), or the
+ * selected pixels when there is a selection (Alt-drag moves a copy). Arrow
+ * keys nudge by 1px (Shift: 10px).
  */
 export class MoveTool extends Tool {
   constructor(app) {
@@ -22,16 +23,22 @@ export class MoveTool extends Tool {
         this.app.emit('layers');
       }
     }
-    const layer = this.app.editableLayer('move tool', { allowText: this.doc.selection.isEmpty(), allowMask: this.doc.selection.isEmpty() });
+    const layer = this._target();
     if (!layer) return;
     this.drag = this._begin(layer, e.alt);
     this.drag.startX = e.x;
     this.drag.startY = e.y;
   }
 
+  _target() {
+    const whole = this.doc.selection.isEmpty();
+    return this.app.editableLayer('move tool', { allowText: whole, allowMask: whole, allowGroup: whole });
+  }
+
   _begin(layer, duplicate) {
     const sel = this.doc.selection;
-    const d = { layer, dx: 0, dy: 0, origX: layer.x, origY: layer.y, float: null, duplicate };
+    const items = layer.isGroup ? [layer, ...this.doc.descendants(layer)] : [layer];
+    const d = { layer, items, orig: items.map((l) => [l.x, l.y]), dx: 0, dy: 0, float: null, duplicate };
     if (sel.isEmpty()) return d;
 
     // Lift the selected pixels into a floating canvas.
@@ -78,8 +85,10 @@ export class MoveTool extends Tool {
     d.dy = dy;
     if (d.float) this.app.selectionOffset = { x: dx, y: dy };
     else {
-      d.layer.x = d.origX + dx;
-      d.layer.y = d.origY + dy;
+      d.items.forEach((l, i) => {
+        l.x = d.orig[i][0] + dx;
+        l.y = d.orig[i][1] + dy;
+      });
     }
     this.app.renderer.request(true);
   }
@@ -109,17 +118,20 @@ export class MoveTool extends Tool {
     this.drag = null;
     this.app.selectionOffset = null;
     if (!d) return;
-    const { layer, dx, dy } = d;
+    const { layer, items, dx, dy } = d;
     if (!dx && !dy) {
       this.app.renderer.request(true);
       return;
     }
     if (!d.float) {
       // Recorded as a delta: layers can grow later without their content moving.
-      this.app.record(label,
-        () => { layer.x -= dx; layer.y -= dy; },
-        () => { layer.x += dx; layer.y += dy; },
-        { layers: [layer] });
+      const by = (k) => () => {
+        for (const l of items) {
+          l.x += k * dx;
+          l.y += k * dy;
+        }
+      };
+      this.app.record(label, by(-1), by(1), { layers: items });
       return;
     }
     const f = d.float;
@@ -143,8 +155,10 @@ export class MoveTool extends Tool {
     const d = this.drag;
     if (!d) return;
     if (!d.float) {
-      d.layer.x = d.origX;
-      d.layer.y = d.origY;
+      d.items.forEach((l, i) => {
+        l.x = d.orig[i][0];
+        l.y = d.orig[i][1];
+      });
     }
     this.drag = null;
     this.app.selectionOffset = null;
@@ -157,7 +171,7 @@ export class MoveTool extends Tool {
     const v = dirs[e.key];
     if (v) {
       if (this.drag) return true;
-      const layer = this.app.editableLayer('move tool', { allowText: this.doc.selection.isEmpty(), allowMask: this.doc.selection.isEmpty() });
+      const layer = this._target();
       if (!layer) return true;
       const step = e.shiftKey ? 10 : 1;
       this.drag = this._begin(layer, false);

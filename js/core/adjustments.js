@@ -1,7 +1,8 @@
 import {
-  applyLUT, clamp01, clamp255, composeLUT, curveLUT, histogram, histogramRange, hslToRgb, luma, makeLUT, rgbToHsl,
+  applyLUT, clamp01, clamp255, composeLUT, copyImageData, curveLUT, histogram, histogramRange, hslToRgb, luma, makeLUT, rgbToHsl,
 } from './pixels.js';
 import { hexToRgb } from './utils.js';
+import { blendFn } from './blend.js';
 
 /*
  * Image ▸ Adjustments. Each entry:
@@ -359,4 +360,41 @@ export function defaultParams(def) {
   const p = {};
   for (const c of def.params || []) if (c.key) p[c.key] = c.value;
   return p;
+}
+
+/** Adjustments available as adjustment layers (the auto commands and Desaturate are not). */
+export const ADJUSTMENT_LAYER_TYPES = [
+  'brightnessContrast', 'levels', 'curves', 'exposure', 'vibrance', 'hueSaturation', 'colorBalance',
+  'blackWhite', 'photoFilter', 'invert', 'posterize', 'threshold', 'gradientMap',
+];
+
+/**
+ * Apply an adjustment layer to `img` (the pixels below it) in place.
+ * weights: mask values 0–255 per pixel (null = everywhere); the result is mixed
+ * in by opacity × weight, through the layer's blend mode. Transparency is kept.
+ */
+export function applyAdjustmentLayer(img, adj, weights, opacity, mode = 'source-over') {
+  const def = ADJUSTMENTS[adj?.type];
+  if (!def) return img;
+  const p = adj.params || {};
+  const out = def.apply(copyImageData(img), p, { fg: p.fg || '#000000', bg: p.bg || '#ffffff', mask: null }).data;
+  const d = img.data;
+  const blend = mode && mode !== 'source-over' ? blendFn(mode) : null;
+  const c = [0, 0, 0];
+  for (let px = 0, i = 0; i < d.length; px++, i += 4) {
+    if (!d[i + 3]) continue;
+    const w = weights ? (opacity * weights[px]) / 255 : opacity;
+    if (w <= 0) continue;
+    let r = out[i], g = out[i + 1], b = out[i + 2];
+    if (blend) {
+      blend(d[i], d[i + 1], d[i + 2], r, g, b, c);
+      r = c[0];
+      g = c[1];
+      b = c[2];
+    }
+    d[i] += (r - d[i]) * w;
+    d[i + 1] += (g - d[i + 1]) * w;
+    d[i + 2] += (b - d[i + 2]) * w;
+  }
+  return img;
 }

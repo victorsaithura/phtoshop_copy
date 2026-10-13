@@ -1,4 +1,7 @@
-import { Layer } from './core/layer.js';
+import { Layer, PASS_THROUGH } from './core/layer.js';
+import { cloneLayers } from './core/document.js';
+import { applyAdjustmentLayer } from './core/adjustments.js';
+import { hasStyles, rasterizeStyled } from './core/effects.js';
 import { createCanvas } from './core/utils.js';
 import {
   openFiles, pickFiles, placeFiles, pasteImage, pasteInternal, copyToSystemClipboard, exportDocument, loadImage,
@@ -23,6 +26,15 @@ export function createActions(app, getMenus) {
   const hasDoc = () => !!app.doc;
   const hasSel = () => !!app.doc && !app.doc.selection.isEmpty();
   const multiLayer = () => !!app.doc && app.doc.layers.length > 1;
+  const pixelLayer = () => !!app.doc?.activeLayer?.isPixel;
+  // Deleting must leave at least one layer.
+  const canDelete = () => {
+    const d = app.doc;
+    if (!d?.activeLayer) return false;
+    const [s, e] = d.span(d.activeLayer);
+    return d.layers.length - (e - s + 1) >= 1;
+  };
+  const notPixels = (what) => app.toast(`Could not ${what} because the target is not a pixel layer.`);
 
   /* ---------- Pixel helpers ---------- */
 
@@ -45,6 +57,7 @@ export function createActions(app, getMenus) {
   }
 
   function copy(merged) {
+    if (!merged && !doc().activeLayer?.isPixel) return notPixels('copy');
     const data = copyPixels(merged);
     const entry = { ...data, docId: doc().id, systemCopied: false };
     app.clipboard = entry;
@@ -187,7 +200,7 @@ export function createActions(app, getMenus) {
       return;
     }
     if (!hasSel()) {
-      if (multiLayer()) A['layer.delete'].run();
+      if (canDelete()) A['layer.delete'].run();
       return;
     }
     const layer = app.editableLayer('clear command');
@@ -212,8 +225,20 @@ export function createActions(app, getMenus) {
   def('layer.duplicate', 'Duplicate Layer', () => {
     const d = doc();
     const layer = d.activeLayer;
-    app.transact('Duplicate Layer', { structure: true }, () => d.addLayer(layer.clone()));
-  }, { enabled: hasDoc });
+    if (!layer.isGroup) {
+      app.transact('Duplicate Layer', { structure: true }, () => d.addLayer(layer.clone()));
+      return;
+    }
+    // A group is copied with everything in it, just above the original.
+    app.transact('Duplicate Group', { structure: true }, () => {
+      const [s, e] = d.span(layer);
+      const copies = cloneLayers(d.layers.slice(s, e + 1), (l) => (l === layer ? `${l.name} copy` : l.name));
+      const top = copies[copies.length - 1];
+      top.parent = layer.parent;
+      d.layers.splice(e + 1, 0, ...copies);
+      d.setActive(top);
+    });
+  }, { enabled: hasDoc, dynamicLabel: () => (doc()?.activeLayer?.isGroup ? 'Duplicate Group' : 'Duplicate Layer') });
 
   const layerVia = (cut) => {
     const d = doc();
@@ -222,6 +247,7 @@ export function createActions(app, getMenus) {
       return;
     }
     const layer = d.activeLayer;
+    if (!layer.isPixel) return notPixels(cut ? 'cut' : 'copy');
     if (cut && !app.editableLayer('cut command')) return;
     const data = copyPixels(false);
     const spec = { structure: true };
@@ -241,8 +267,9 @@ export function createActions(app, getMenus) {
   def('layer.viaCut', 'Layer via Cut', () => layerVia(true), { enabled: hasSel, shortcut: 'Ctrl+Shift+J' });
   def('layer.delete', 'Delete Layer', () => {
     const d = doc();
-    app.transact('Delete Layer', { structure: true }, () => d.removeLayer(d.activeLayer));
-  }, { enabled: multiLayer });
+    const label = d.activeLayer.isGroup ? 'Delete Group' : 'Delete Layer';
+    app.transact(label, { structure: true }, () => d.removeLayer(d.activeLayer));
+  }, { enabled: canDelete, dynamicLabel: () => (doc()?.activeLayer?.isGroup ? 'Delete Group' : 'Delete Layer') });
   def('layer.rename', 'Rename Layer…', async () => {
     const layer = doc().activeLayer;
     const name = await promptDialog({ title: 'Rename Layer', label: 'Name', value: layer.name });
@@ -270,22 +297,29 @@ export function createActions(app, getMenus) {
     app.transact('Rasterize Type', { layers: [layer] }, () => { layer.text = null; });
   }, { enabled: () => !!app.doc?.activeLayer?.text });
 
-  const arrange = (label, target) => () => {
+  // Arranging moves a layer among the others in its group.
+  const arrange = (label, step) => () => {
     const d = doc();
-    const i = d.activeIndex;
-    const to = Math.max(0, Math.min(d.layers.length - 1, target(i, d.layers.length)));
-    if (to === i) return;
     const layer = d.activeLayer;
-    app.transact(label, { structure: true }, () => d.moveLayer(layer, to));
+    const sibs = d.childrenOf(layer.parent);
+    const i = sibs.indexOf(layer);
+    if ((step > 0 && i === sibs.length - 1) || (step < 0 && i === 0)) return;
+    app.transact(label, { structure: true }, () => d.arrange(layer, step));
   };
-  def('layer.front', 'Bring to Front', arrange('Bring to Front', (i, n) => n - 1), { enabled: multiLayer, shortcut: 'Ctrl+Shift+]' });
-  def('layer.forward', 'Bring Forward', arrange('Bring Forward', (i) => i + 1), { enabled: multiLayer, shortcut: 'Ctrl+]' });
-  def('layer.backward', 'Send Backward', arrange('Send Backward', (i) => i - 1), { enabled: multiLayer, shortcut: 'Ctrl+[' });
-  def('layer.back', 'Send to Back', arrange('Send to Back', () => 0), { enabled: multiLayer, shortcut: 'Ctrl+Shift+[' });
+  const hasSiblings = () => !!app.doc?.activeLayer && app.doc.childrenOf(app.doc.activeLayer.parent).length > 1;
+  def('layer.front', 'Bring to Front', arrange('Bring to Front', Infinity), { enabled: hasSiblings, shortcut: 'Ctrl+Shift+]' });
+  def('layer.forward', 'Bring Forward', arrange('Bring Forward', 1), { enabled: hasSiblings, shortcut: 'Ctrl+]' });
+  def('layer.backward', 'Send Backward', arrange('Send Backward', -1), { enabled: hasSiblings, shortcut: 'Ctrl+[' });
+  def('layer.back', 'Send to Back', arrange('Send to Back', -Infinity), { enabled: hasSiblings, shortcut: 'Ctrl+Shift+[' });
 
+  // Steps through the rows shown in the Layers panel (contents of closed groups are skipped).
   const selectNeighbour = (dir) => () => {
     const d = doc();
-    const next = d.layers[d.activeIndex + dir];
+    const shown = d.layers.filter((l) => {
+      for (let p = l.parent; p; p = p.parent) if (p.collapsed) return false;
+      return true;
+    });
+    const next = shown[shown.indexOf(d.activeLayer) + dir];
     if (next) {
       d.setActive(next);
       app.emit('layers');
@@ -294,42 +328,83 @@ export function createActions(app, getMenus) {
   def('layer.selectUp', 'Select Layer Above', selectNeighbour(1), { enabled: multiLayer, shortcut: 'Alt+]' });
   def('layer.selectDown', 'Select Layer Below', selectNeighbour(-1), { enabled: multiLayer, shortcut: 'Alt+[' });
 
+  /** Bake a layer's mask and effects into its pixels. */
+  const bake = (layer) => {
+    if (hasStyles(layer)) {
+      const r = rasterizeStyled(layer);
+      Object.assign(layer, { canvas: r.canvas, x: r.x, y: r.y, styles: null, mask: null, maskSelected: false });
+    } else if (layer.mask) {
+      if (layer.mask.enabled) layer.canvas = maskedPixels(layer);
+      layer.mask = null;
+      layer.maskSelected = false;
+    }
+    layer.styles = null;
+    layer.text = null;
+  };
+
+  const mergeGroup = (d, group) => {
+    app.transact('Merge Group', { structure: true }, () => {
+      const merged = new Layer({ name: group.name, canvas: d.renderGroup(group) });
+      merged.opacity = group.opacity;
+      merged.blendMode = group.blendMode === PASS_THROUGH ? 'source-over' : group.blendMode;
+      const [s] = d.span(group);
+      const parent = group.parent;
+      d.removeLayer(group);
+      d.addLayer(merged, s, parent);
+    });
+  };
+
   def('layer.mergeDown', 'Merge Down', () => {
     const d = doc();
-    const i = d.activeIndex;
-    const upper = d.layers[i];
-    const lower = d.layers[i - 1];
-    if (!lower) return;
+    const upper = d.activeLayer;
+    if (upper.isGroup) return mergeGroup(d, upper);
+    const lower = d.layers[d.activeIndex - 1];
+    if (!lower || lower.parent !== upper.parent) return app.toast('Could not merge because there is no layer below in the same group.');
+    if (!lower.isPixel) return app.toast(`Could not merge because the layer below is ${lower.isGroup ? 'a group' : 'an adjustment layer'}.`);
     if (lower.locked) return app.toast('Could not merge because the layer below is locked.');
     if (!upper.visible || !lower.visible) return app.toast('Could not merge because one of the layers is hidden.');
     app.transact('Merge Down', { structure: true, layers: [lower] }, () => {
-      lower.text = null;
-      // Masks are applied before merging.
-      if (lower.mask) {
-        if (lower.mask.enabled) lower.canvas = maskedPixels(lower);
-        lower.mask = null;
-        lower.maskSelected = false;
+      bake(lower);
+      if (upper.isAdjustment) {
+        // Merging an adjustment layer applies it to the pixels below.
+        const img = lower.ctx.getImageData(0, 0, lower.width, lower.height);
+        const m = upper.mask && upper.mask.enabled ? upper.mask : null;
+        const weights = m ? m.read(upper, lower.bounds) : null;
+        applyAdjustmentLayer(img, upper.adjustment, weights, upper.opacity, upper.blendMode);
+        lower.ctx.putImageData(img, 0, 0);
+      } else {
+        const src = hasStyles(upper) ? rasterizeStyled(upper) : { canvas: maskedPixels(upper), x: upper.x, y: upper.y };
+        lower.ensureCovers({ x: src.x, y: src.y, w: src.canvas.width, h: src.canvas.height });
+        const c = lower.ctx;
+        c.save();
+        c.globalAlpha = upper.opacity;
+        c.globalCompositeOperation = upper.blendMode;
+        c.drawImage(src.canvas, src.x - lower.x, src.y - lower.y);
+        c.restore();
       }
-      lower.ensureCovers(upper.bounds);
-      const c = lower.ctx;
-      c.save();
-      c.globalAlpha = upper.opacity;
-      c.globalCompositeOperation = upper.blendMode;
-      c.drawImage(maskedPixels(upper), upper.x - lower.x, upper.y - lower.y);
-      c.restore();
       d.removeLayer(upper);
       d.setActive(lower);
     });
-  }, { enabled: () => !!app.doc && app.doc.activeIndex > 0, shortcut: 'Ctrl+E' });
+  }, {
+    enabled: () => !!app.doc && (app.doc.activeLayer?.isGroup || app.doc.activeIndex > 0),
+    shortcut: 'Ctrl+E',
+    dynamicLabel: () => (doc()?.activeLayer?.isGroup ? 'Merge Group' : 'Merge Down'),
+  });
   def('layer.mergeVisible', 'Merge Visible', () => {
     const d = doc();
-    const visible = d.layers.filter((l) => l.visible);
+    const visible = d.layers.filter((l) => !l.isGroup && d.isVisible(l));
     if (visible.length < 2) return;
     app.transact('Merge Visible', { structure: true }, () => {
       const merged = new Layer({ name: visible[0].name, canvas: d.composite() });
       const index = d.layers.indexOf(visible[0]);
+      let parent = visible[0].parent;
       for (const l of visible) d.removeLayer(l);
-      d.addLayer(merged, index);
+      // Groups left empty go too; the merged layer stays in the nearest group that remains.
+      for (const g of d.layers.filter((l) => l.isGroup && d.isVisible(l))) {
+        if (!d.descendants(g).length) d.removeLayer(g);
+      }
+      while (parent && !d.layers.includes(parent)) parent = parent.parent;
+      d.addLayer(merged, index, parent);
     });
   }, { enabled: multiLayer, shortcut: 'Ctrl+Shift+E' });
   def('layer.flatten', 'Flatten Image', () => {
@@ -356,10 +431,11 @@ export function createActions(app, getMenus) {
     { enabled: hasDoc, shortcut: 'Ctrl+Shift+I', keys: ['Ctrl+Shift+I', 'Shift+F7'] });
   def('select.layerPixels', 'Select Layer Pixels', () => {
     const layer = doc().activeLayer;
+    if (!layer.isPixel) return notPixels('load the selection');
     app.transact('Load Selection', { selection: true }, () => {
       doc().selection.combine((ctx) => ctx.drawImage(layer.canvas, layer.x, layer.y), 'new', 0, layer.bounds);
     });
-  }, { enabled: hasDoc });
+  }, { enabled: pixelLayer });
 
   /* ---------- View ---------- */
 

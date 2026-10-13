@@ -220,7 +220,7 @@ export class MagicWandTool extends Tool {
     const src = createCanvas(W, H, { readFrequently: true });
     const sctx = src.getContext('2d', { willReadFrequently: true });
     const layer = doc.activeLayer;
-    if (this.options.allLayers || !layer) doc.composite(src);
+    if (this.options.allLayers || !layer?.isPixel) doc.composite(src);
     else sctx.drawImage(layer.canvas, layer.x, layer.y);
     const { mask, bounds } = floodMask(sctx.getImageData(0, 0, W, H).data, W, H, x, y,
       this.options.tolerance, this.options.contiguous);

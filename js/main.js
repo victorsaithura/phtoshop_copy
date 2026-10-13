@@ -2,6 +2,7 @@ import { App } from './app.js';
 import { createActions } from './actions.js';
 import { registerImageActions } from './actions-image.js';
 import { registerMaskActions } from './actions-mask.js';
+import { registerLayerActions } from './actions-layers.js';
 import { setupShortcuts } from './shortcuts.js';
 import { setupDropAndPaste } from './io.js';
 import { MoveTool } from './tools/move.js';
@@ -58,6 +59,7 @@ for (const tool of [
 
 app.actions = createActions(app, () => MENUS);
 registerImageActions(app, app.actions);
+registerLayerActions(app, app.actions);
 registerMaskActions(app, app.actions);
 
 new MenuBar(app, $('#menubar'));
