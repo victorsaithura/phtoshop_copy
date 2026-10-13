@@ -2,12 +2,15 @@ import { createCanvas, downloadBlob } from './core/utils.js';
 import { PSDocument } from './core/document.js';
 import { Layer } from './core/layer.js';
 import { isProjectFile, parseProject } from './project.js';
+import { isPSDFile, readPSD } from './psd.js';
 
 export const MAX_SIDE = 16384;
 export const MAX_PIXELS = 100_000_000;
 
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|avif|ico)$/i;
-export const isImageFile = (f) => !!f && ((f.type || '').startsWith('image/') || IMAGE_EXT.test(f.name || ''));
+export const isImageFile = (f) => !!f && !isPSDFile(f) && ((f.type || '').startsWith('image/') || IMAGE_EXT.test(f.name || ''));
+/** Files that always open as documents of their own. */
+const isDocumentFile = (f) => isProjectFile(f) || isPSDFile(f);
 const TEXT_INPUTS = new Set(['text', 'number', 'search', 'email', 'password', 'url', 'tel']);
 /** True when keystrokes belong to a form field rather than to shortcuts. */
 export const isTyping = (el) =>
@@ -48,7 +51,7 @@ export async function loadImage(file) {
   return c;
 }
 
-export function pickFiles({ multiple = false, accept = 'image/*,.svg,.pfp' } = {}) {
+export function pickFiles({ multiple = false, accept = 'image/*,.svg,.pfp,.psd' } = {}) {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -62,16 +65,26 @@ export function pickFiles({ multiple = false, accept = 'image/*,.svg,.pfp' } = {
 
 const stripExt = (name) => (name || '').replace(/\.[^.]+$/, '');
 
-/** Open each image or PhotoForge project as its own document. */
+/** Open each image, Photoshop document or PhotoForge project as its own document. */
 export async function openFiles(app, files) {
   const projects = files.filter(isProjectFile);
-  const images = files.filter((f) => !isProjectFile(f) && isImageFile(f));
-  if (files.length && !images.length && !projects.length) {
-    app.toast('That file type is not supported. Open a PNG, JPEG, WebP, GIF, BMP or SVG image, or a .pfp project.');
+  const psds = files.filter(isPSDFile);
+  const images = files.filter((f) => !isDocumentFile(f) && isImageFile(f));
+  if (files.length && !images.length && !projects.length && !psds.length) {
+    app.toast('That file type is not supported. Open a PNG, JPEG, WebP, GIF, BMP or SVG image, a .psd file or a .pfp project.');
   }
   for (const file of projects) {
     try {
       app.addDocument(await parseProject(await file.text()), 'Open');
+    } catch (err) {
+      app.toast(`Could not open ${file.name}: ${err.message}.`);
+    }
+  }
+  for (const file of psds) {
+    try {
+      const { doc, warnings } = await readPSD(await file.arrayBuffer(), file.name);
+      app.addDocument(doc, 'Open');
+      if (warnings.length) app.toast(`Opened ${file.name} without its ${warnings.join(', ')}, which PhotoForge can’t read from .psd files.`);
     } catch (err) {
       app.toast(`Could not open ${file.name}: ${err.message}.`);
     }
@@ -213,9 +226,9 @@ export function setupDropAndPaste(app) {
     depth = 0;
     overlay.hidden = true;
     const files = [...e.dataTransfer.files];
-    // Projects always open as documents; images become layers unless Shift is held.
-    const projects = files.filter(isProjectFile);
-    const images = files.filter((f) => !isProjectFile(f));
+    // Projects and .psd files always open as documents; images become layers unless Shift is held.
+    const projects = files.filter(isDocumentFile);
+    const images = files.filter((f) => !isDocumentFile(f));
     if (projects.length) openFiles(app, projects);
     if (!images.length) return;
     if (app.doc && !e.shiftKey) placeFiles(app, images);

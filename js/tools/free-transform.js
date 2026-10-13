@@ -38,6 +38,10 @@ export class FreeTransformTool extends Tool {
 
   /** Begin transforming the active layer; returns false if there is nothing to transform. */
   start(returnTo) {
+    if (this.app.doc?.activeLayer && !this.app.doc.activeLayer.isPixel) {
+      this.app.toast('Free Transform works on pixel and type layers. Use Edit ▸ Transform to flip or rotate a group.');
+      return false;
+    }
     const layer = this.app.editableLayer('free transform command', { allowMask: true });
     if (!layer) return false;
     const b = contentBounds(layer);

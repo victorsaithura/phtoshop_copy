@@ -17,6 +17,8 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${PORT}`,
     viewport,
     trace: 'retain-on-failure',
+    // Service workers are tested on their own (tests/offline.spec.js).
+    serviceWorkers: 'block',
   },
   // Every engine runs in CI; locally only the bundled Chromium is available.
   projects: [

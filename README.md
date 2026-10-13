@@ -1,6 +1,6 @@
 # PhotoForge
 
-A Photoshop-style photo editor that runs entirely in the browser. There is no server and no build step: images are processed locally and never uploaded.
+A Photoshop-style photo editor that runs entirely in the browser. There is no server and no build step: images are processed locally and never uploaded. Once opened, it also works offline and can be installed as an app.
 
 ## Run it
 
@@ -22,11 +22,17 @@ Any static file server works (`npx serve`, VS Code Live Server, …).
 
 On a free GitHub plan, Pages only works for public repositories.
 
+### Install it and use it offline
+
+After the first visit over `https://` (or `localhost`), PhotoForge keeps a copy of itself so it opens without an internet connection. Choose **File ▸ Install PhotoForge…** (or the install button in Chrome/Edge's address bar, or Share ▸ Add to Dock / Home Screen in Safari) to run it in its own window. An installed copy can open PNG, JPEG, WebP, `.psd` and `.pfp` files straight from your computer.
+
 ## Features
 
 **Documents**
 - New document with presets (HD, 4K, square post, story, A4, Letter…), or open PNG, JPEG, WebP, GIF, BMP and SVG files
-- Save your work as a PhotoForge project (Ctrl+S, `.pfp`) with every layer, mask and editable text, and open it again later
+- Save your work as a PhotoForge project (Ctrl+S, `.pfp`) with every layer, group, mask, adjustment layer, layer style and editable text, and open it again later
+- Open and save Photoshop documents (`.psd`, 8/16-bit RGB or Grayscale): layers, groups, masks, opacity, blend modes and visibility are kept. When saving, type is rasterized, layer styles are merged into their layers and adjustment layers are saved as merged pixels; when opening, Photoshop adjustment layers and layer styles are left out (you are told which)
+- Autosave: unsaved documents are kept in the browser, and if the tab closes or crashes PhotoForge offers to recover them next time
 - Several documents open at once, in tabs
 - Drag and drop images onto the window, or paste them with Ctrl+V
 - Export as PNG, JPEG or WebP with quality and scale options
@@ -36,6 +42,9 @@ On a free GitHub plan, Pages only works for public repositories.
 - Opacity and 16 blend modes (Multiply, Screen, Overlay, Soft Light, Color, Luminosity, …)
 - Layer via Copy / Cut, Merge Down, Merge Visible, Flatten Image
 - Ctrl-click a thumbnail to select the layer's pixels
+- **Groups:** Group Layers (Ctrl+G), Ungroup (Ctrl+Shift+G), New Group; nested groups with Pass Through or any blend mode, opacity and masks. Drag layers into a group, collapse it with its arrow, and move, duplicate, delete, flip or merge (Ctrl+E) a whole group at once
+- **Adjustment layers** (Layer ▸ New Adjustment Layer, or the half-circle button in the Layers panel): Brightness/Contrast, Levels, Curves, Exposure, Vibrance, Hue/Saturation, Color Balance, Black & White, Photo Filter, Invert, Posterize, Threshold and Gradient Map, editable at any time (double-click the icon), with their own mask, opacity and blend mode. Inside a group, an adjustment layer only affects that group (unless the group is Pass Through)
+- **Layer styles** (Layer ▸ Layer Style, the fx button, or double-click beside a layer's name): Bevel & Emboss, Stroke, Inner Shadow, Inner Glow, Color Overlay, Outer Glow and Drop Shadow, with live preview; they follow every edit to the layer. Copy, paste and clear styles from the same menu; Merge Down bakes them in
 
 **Tools**
 
@@ -92,8 +101,11 @@ Press **?** inside the app for the full list of keyboard shortcuts. On a Mac, us
 - **Phase 1 (done):** documents, layers, selections, painting, fills, gradients, history, export.
 - **Phase 2 (done):** adjustments, filters, crop, image and canvas size, rotation and flips.
 - **Phase 3 (done):** lasso and magic wand, healing and clone tools, dodge/burn/sponge, blur/sharpen/smudge, type, shapes, layer masks, Free Transform, project files.
+- **Phase 4 (done):** layer groups, adjustment layers, layer styles, PSD open/save, offline use and installing, autosave and recovery.
 
-Ideas for later: PSD import/export, adjustment layers, layer groups, layer styles (drop shadow, stroke), a Pen tool and vector shapes.
+Ideas for later: rulers, guides and snapping; Select ▸ Modify, Color Range and Quick Mask; Liquify and Content-Aware Fill; perspective and warp transforms; a Pen tool and vector shapes.
+
+Known limitation: adjustment layers are recalculated when the image is redrawn, so dragging whole layers in very large images (tens of megapixels) with adjustment layers above them can feel slow.
 
 ## Development
 
@@ -118,10 +130,15 @@ js/shortcuts.js       keyboard handling
 js/io.js              open, place, paste, export
 js/actions-image.js   Image and Filter menu commands
 js/actions-mask.js    layer mask commands
+js/actions-layers.js  groups, adjustment layers and layer styles
 js/project.js         .pfp project save/open
+js/psd.js             Photoshop .psd reader and writer
+js/autosave.js        autosave to the browser and recovery
+sw.js                 service worker (offline use); manifest.webmanifest and icons/ for installing
 tests/                Playwright browser tests
-js/core/              document model: layers, selection, history, viewport, renderer,
-                      adjustments, filters, transforms and the live-preview engine
+js/core/              document model: layers and groups, selection, history, viewport, renderer,
+                      adjustments, filters, layer styles (effects.js), blend modes,
+                      transforms and the live-preview engine
 js/tools/             one file per tool family
 js/ui/                menu bar, toolbar, options bar, panels, dialogs
 ```

@@ -2,8 +2,10 @@ import { App } from './app.js';
 import { createActions } from './actions.js';
 import { registerImageActions } from './actions-image.js';
 import { registerMaskActions } from './actions-mask.js';
+import { registerLayerActions } from './actions-layers.js';
 import { setupShortcuts } from './shortcuts.js';
-import { setupDropAndPaste } from './io.js';
+import { setupDropAndPaste, openFiles } from './io.js';
+import { setupAutosave } from './autosave.js';
 import { MoveTool } from './tools/move.js';
 import { MarqueeTool } from './tools/marquee.js';
 import { CropTool } from './tools/crop.js';
@@ -58,6 +60,7 @@ for (const tool of [
 
 app.actions = createActions(app, () => MENUS);
 registerImageActions(app, app.actions);
+registerLayerActions(app, app.actions);
 registerMaskActions(app, app.actions);
 
 new MenuBar(app, $('#menubar'));
@@ -133,6 +136,43 @@ app.on('toast', (message) => {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
 });
+
+/* ---------- Autosave, offline use and installing ---------- */
+
+setupAutosave(app);
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('./sw.js').catch(() => { /* offline use is optional */ });
+}
+
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installPrompt = e;
+});
+app.actions['file.install'] = {
+  id: 'file.install',
+  label: 'Install PhotoForge…',
+  keys: [],
+  run: async () => {
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      app.toast('PhotoForge is already installed and running as an app.');
+    } else if (installPrompt) {
+      const prompt = installPrompt;
+      installPrompt = null;
+      await prompt.prompt();
+    } else {
+      app.toast('Use your browser’s install option: “Install app” in Chrome or Edge, or Share ▸ Add to Dock / Home Screen in Safari.');
+    }
+  },
+};
+
+// Files opened from the operating system with the installed app.
+if ('launchQueue' in window) {
+  window.launchQueue.setConsumer(async (params) => {
+    if (params.files?.length) openFiles(app, await Promise.all(params.files.map((f) => f.getFile())));
+  });
+}
 
 // Handy for debugging from the console.
 window.photoforge = app;

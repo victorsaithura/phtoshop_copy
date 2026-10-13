@@ -206,6 +206,15 @@ select { padding: 0 4px; cursor: pointer; }
 .layer-lock { flex: none; color: var(--text-dim); }
 .layer-lock svg { width: 13px; height: 13px; }
 .layers-footer { display: flex; justify-content: flex-end; gap: 2px; padding-top: 6px; }
+.layer-row.drop-into { box-shadow: inset 0 0 0 2px var(--accent); }
+.layer-indent { flex: none; }
+.layer-twist {
+  flex: none; width: 14px; margin: 0 -4px 0 -2px; padding: 0; border: 0; background: none;
+  color: var(--text-dim); font-size: 12px; cursor: pointer;
+}
+.layer-icon { display: flex; align-items: center; justify-content: center; background: #3a3a3a; color: var(--text-dim); }
+.layer-fx { font-style: italic; background: none; cursor: pointer; }
+.layers-popup { top: auto; left: auto; right: 0; bottom: 34px; max-height: 60vh; overflow-y: auto; border-radius: var(--radius); }
 .layers-footer svg, .layer-eye svg, .layers-lockrow svg { width: 15px; height: 15px; }
 
 /* History */
@@ -257,9 +266,10 @@ select { padding: 0 4px; cursor: pointer; }
   background: transparent; justify-content: flex-end; align-items: flex-start;
   padding: 72px calc(var(--panels-w) + 24px) 16px 16px;
 }
-.modal-backdrop.side .modal { max-width: 340px; box-shadow: 0 14px 44px rgba(0, 0, 0, 0.7); }
+.modal-backdrop.side .modal { max-width: 340px; max-height: calc(100vh - 88px); box-shadow: 0 14px 44px rgba(0, 0, 0, 0.7); }
 @media (max-width: 900px) {
   .modal-backdrop.side { padding: 64px 12px 12px; }
+  .modal-backdrop.side .modal { max-height: calc(100dvh - 76px); }
 }
 
 /* Adjustment dialogs */
@@ -349,3 +359,15 @@ select { padding: 0 4px; cursor: pointer; }
   flex: none; font: 600 10px/1 system-ui, sans-serif; color: var(--text-dim);
   border: 1px solid var(--border-light); border-radius: 3px; padding: 2px 3px;
 }
+
+/* Recovery dialog */
+.recover-list { margin: 0 0 8px; padding-left: 18px; }
+.recover-time, .recover-hint { color: var(--text-dim); }
+.recover-hint { margin: 0; font-size: 12px; }
+
+/* Layer Style dialog */
+.fx-dialog { display: flex; flex-direction: column; gap: 10px; }
+.fx-list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.fx-row { display: flex; align-items: center; gap: 4px; border-radius: var(--radius); }
+.fx-row.active { background: var(--hover); }
+.fx-name { flex: 1; padding: 4px 2px; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; }

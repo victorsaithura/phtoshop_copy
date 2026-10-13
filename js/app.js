@@ -134,7 +134,8 @@ export class App extends Emitter {
       }
     }
     if (spec.structure && doc) {
-      for (const l of doc.layers) l.touch();
+      // Redraw every thumbnail; pixels themselves are unchanged (no contentVersion bump).
+      for (const l of doc.layers) l.version++;
       this.emit('layers');
     }
     if (spec.selection) this.emit('selection');
@@ -195,25 +196,34 @@ export class App extends Emitter {
 
   /**
    * The active layer if it can be edited; otherwise explains why not.
-   * Type layers must be rasterized before their pixels can change.
+   * Type layers must be rasterized before their pixels can change; groups and
+   * adjustment layers have no pixels (only their masks can be painted), but
+   * the Move tool can move them (allowGroup).
    */
-  editableLayer(toolName = 'tool', { allowText = false, allowMask = false } = {}) {
-    const layer = this.doc?.activeLayer;
+  editableLayer(toolName = 'tool', { allowText = false, allowMask = false, allowGroup = false } = {}) {
+    const doc = this.doc;
+    const layer = doc?.activeLayer;
     if (!layer) return null;
     const onMask = !!(layer.mask && layer.maskSelected);
     if (onMask && !allowMask) {
       this.toast(`Could not use the ${toolName} on a layer mask. Click the layer thumbnail to edit its pixels.`);
       return null;
     }
+    if (!layer.isPixel && !onMask && !allowGroup) {
+      const what = layer.isGroup ? 'a group' : 'an adjustment layer';
+      const hint = layer.mask ? ' Select a pixel layer, or click the mask thumbnail to paint on the mask.' : ' Select a pixel layer.';
+      this.toast(`Could not use the ${toolName} because the target is ${what}.${hint}`);
+      return null;
+    }
     if (layer.text && !allowText && !onMask) {
       this.toast(`Could not use the ${toolName} because the type layer must be rasterized first (Layer ▸ Rasterize Type).`);
       return null;
     }
-    if (!layer.visible) {
+    if (!doc.isVisible(layer)) {
       this.toast(`Could not use the ${toolName} because the target layer is hidden.`);
       return null;
     }
-    if (layer.locked) {
+    if (doc.isLocked(layer)) {
       this.toast(`Could not use the ${toolName} because the layer is locked.`);
       return null;
     }

@@ -60,7 +60,7 @@ export class TextTool extends Tool {
       return;
     }
     const doc = this.doc;
-    const hit = [...doc.layers].reverse().find((l) => l.text && l.visible && inside(l.bounds, e.x, e.y));
+    const hit = [...doc.layers].reverse().find((l) => l.text && doc.isVisible(l) && inside(l.bounds, e.x, e.y));
     if (hit) {
       doc.setActive(hit);
       this.app.emit('layers');

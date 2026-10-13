@@ -1,5 +1,5 @@
-import { createCanvas, rectIntersect } from './utils.js';
-import { PSDocument } from './document.js';
+import { createCanvas, rectIntersect, rectUnion } from './utils.js';
+import { PSDocument, cloneLayers } from './document.js';
 import { renderText } from './text.js';
 
 /*
@@ -127,7 +127,7 @@ export function resizeCanvas(app, w, h, anchor = { x: 0.5, y: 0.5 }, fill = null
     doc.width = w;
     doc.height = h;
     doc.selection.reset(w, h);
-    const bottom = doc.layers[0];
+    const bottom = doc.layers.find((l) => l.isPixel);
     if (fill && bottom) {
       const ext = createCanvas(w, h);
       const ec = ext.getContext('2d');
@@ -246,11 +246,13 @@ export function contentBounds(layer) {
   return { x: layer.x + minX, y: layer.y + minY, w: maxX - minX + 1, h: maxY - minY + 1 };
 }
 
-/** Edit ▸ Transform on the active layer, around the centre of its content. */
+/** Edit ▸ Transform on the active layer (or everything in a group), around the centre of its content. */
 export function transformLayer(app, kind) {
-  const layer = app.editableLayer('transform command');
+  const layer = app.editableLayer('transform command', { allowGroup: true });
   if (!layer) return;
-  const b = contentBounds(layer);
+  const items = layer.isGroup ? [layer, ...app.doc.descendants(layer)] : [layer];
+  let b = null;
+  for (const l of items) if (l.isPixel) b = rectUnion(b, contentBounds(l));
   if (!b) return;
   // Whole-pixel centre keeps 90° turns on the pixel grid.
   const cx = kind.startsWith('rot90') ? Math.round(b.x + b.w / 2) : b.x + b.w / 2;
@@ -263,18 +265,20 @@ export function transformLayer(app, kind) {
     rot90ccw: [[0, -1, 1, 0, cx - cy, cx + cy], 'Rotate 90° Counter Clockwise'],
   }[kind];
   if (!M) return;
-  app.transact(M[1], { layers: [layer] }, () => transformLayerCanvas(layer, new DOMMatrix(M[0]), false));
+  app.transact(M[1], { layers: items }, () => {
+    for (const l of items) {
+      l.text = null;
+      transformLayerCanvas(l, new DOMMatrix(M[0]), false);
+    }
+  });
 }
 
 export function duplicateDocument(app, name) {
   const src = app.doc;
   const doc = new PSDocument({ width: src.width, height: src.height, name, background: 'transparent' });
-  doc.layers = src.layers.map((l) => {
-    const c = l.clone(l.name);
-    c.locked = l.locked;
-    return c;
-  });
+  doc.layers = cloneLayers(src.layers);
   doc.activeId = doc.layers[Math.max(0, src.activeIndex)].id;
   doc.layerCounter = src.layerCounter;
+  doc.groupCounter = src.groupCounter;
   app.addDocument(doc, 'Duplicate Image');
 }

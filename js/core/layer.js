@@ -27,13 +27,27 @@ export const BLEND_MODES = [
   { value: 'luminosity', label: 'Luminosity' },
 ];
 
+/** Groups default to Pass Through: their layers blend straight into what is below. */
+export const PASS_THROUGH = 'pass-through';
+export const GROUP_BLEND_MODES = [{ value: PASS_THROUGH, label: 'Pass Through' }, ...BLEND_MODES];
+
+export const copyJSON = (v) => (v == null ? null : JSON.parse(JSON.stringify(v)));
+
 /**
- * A raster layer. Its canvas can be any size and sits at (x, y) in document
- * space, so pixels moved outside the document are kept, as in Photoshop.
+ * A layer. Pixel layers (and type layers) hold a canvas of any size at (x, y)
+ * in document space, so pixels moved outside the document are kept, as in
+ * Photoshop. Groups and adjustment layers have no pixels of their own (just a
+ * 1×1 placeholder canvas, so masks and document-wide commands treat every
+ * kind alike).
+ *
+ * The document keeps all layers in one list, bottom first; a group sits just
+ * above its contents, which point to it through `parent`.
  */
 export class Layer {
-  constructor({ name = 'Layer', width = 1, height = 1, x = 0, y = 0, canvas = null } = {}) {
+  constructor({ name = 'Layer', width = 1, height = 1, x = 0, y = 0, canvas = null, kind = 'pixel' } = {}) {
     this.id = nextLayerId++;
+    this.kind = kind; // 'pixel' | 'group' | 'adjustment'
+    this.parent = null; // the group this layer is in
     this.name = name;
     this.canvas = canvas || createCanvas(width, height);
     this.x = x;
@@ -45,15 +59,38 @@ export class Layer {
     this.text = null; // type layers: settings from core/text.js, re-rendered on edit
     this.mask = null; // optional Mask (core/mask.js); maskSelected = the mask is being edited
     this.maskSelected = false;
-    this.version = 0; // bumped on every pixel change (used for thumbnails)
+    this.adjustment = null; // adjustment layers: { type, params } (core/adjustments.js)
+    this.styles = null; // layer style effects (core/effects.js)
+    this.collapsed = false; // groups: contents hidden in the Layers panel
+    this.version = 0; // bumped on every change (used for thumbnails)
+    this.contentVersion = 0; // bumped when pixels or the mask change (used for style caches)
   }
+
+  static group(name) {
+    const g = new Layer({ name, kind: 'group' });
+    g.blendMode = PASS_THROUGH;
+    return g;
+  }
+
+  static adjustmentLayer(name, type, params) {
+    const l = new Layer({ name, kind: 'adjustment' });
+    l.adjustment = { type, params: copyJSON(params) };
+    return l;
+  }
+
+  get isGroup() { return this.kind === 'group'; }
+  get isAdjustment() { return this.kind === 'adjustment'; }
+  get isPixel() { return this.kind === 'pixel'; }
 
   get ctx() { return this.canvas.getContext('2d'); }
   get width() { return this.canvas.width; }
   get height() { return this.canvas.height; }
   get bounds() { return { x: this.x, y: this.y, w: this.canvas.width, h: this.canvas.height }; }
 
-  touch() { this.version++; }
+  touch() {
+    this.version++;
+    this.contentVersion++;
+  }
 
   /** Grow the canvas (never shrinks) so it covers `rect` in document coordinates. */
   ensureCovers(rect) {
@@ -122,13 +159,18 @@ export class Layer {
     this.touch();
   }
 
+  /** A copy with a new id (the parent is kept; see cloneLayers for whole groups). */
   clone(name = this.name + ' copy') {
-    const l = new Layer({ name, canvas: cloneCanvas(this.canvas), x: this.x, y: this.y });
+    const l = new Layer({ name, canvas: cloneCanvas(this.canvas), x: this.x, y: this.y, kind: this.kind });
+    l.parent = this.parent;
     l.visible = this.visible;
     l.opacity = this.opacity;
     l.blendMode = this.blendMode;
     l.text = this.text ? { ...this.text } : null;
     l.mask = this.mask ? this.mask.clone() : null;
+    l.adjustment = copyJSON(this.adjustment);
+    l.styles = copyJSON(this.styles);
+    l.collapsed = this.collapsed;
     return l;
   }
 

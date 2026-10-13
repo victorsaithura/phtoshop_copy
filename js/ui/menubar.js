@@ -4,7 +4,7 @@ import { formatShortcut } from '../core/utils.js';
 
 // Items are action ids, '-' separators, or { label, items } submenus.
 export const MENUS = [
-  { label: 'File', items: ['file.new', 'file.open', 'file.place', '-', 'file.save', 'file.saveAs', '-', 'file.export', 'file.quickExport', '-', 'file.close'] },
+  { label: 'File', items: ['file.new', 'file.open', 'file.place', '-', 'file.save', 'file.saveAs', 'file.savePSD', '-', 'file.export', 'file.quickExport', '-', 'file.install', '-', 'file.close'] },
   {
     label: 'Edit',
     items: ['edit.undo', 'edit.redo', '-', 'edit.cut', 'edit.copy', 'edit.copyMerged', 'edit.paste', 'edit.clear', '-',
@@ -30,9 +30,19 @@ export const MENUS = [
   },
   {
     label: 'Layer',
-    items: ['layer.new', 'layer.duplicate', 'layer.delete', 'layer.rename', '-', 'layer.viaCopy', 'layer.viaCut', 'layer.rasterize', '-',
+    items: ['layer.new', 'layer.newGroup', 'layer.duplicate', 'layer.delete', 'layer.rename', '-',
+      'layer.viaCopy', 'layer.viaCut', 'layer.rasterize', '-',
+      { label: 'Layer Style', items: ['layer.style.open', '-', 'layer.style.bevel', 'layer.style.stroke', 'layer.style.innerShadow',
+        'layer.style.innerGlow', 'layer.style.colorOverlay', 'layer.style.outerGlow', 'layer.style.dropShadow', '-',
+        'layer.style.copy', 'layer.style.paste', 'layer.style.clear'] },
+      { label: 'New Adjustment Layer', items: ['layer.adjust.brightnessContrast', 'layer.adjust.levels', 'layer.adjust.curves',
+        'layer.adjust.exposure', '-', 'layer.adjust.vibrance', 'layer.adjust.hueSaturation', 'layer.adjust.colorBalance',
+        'layer.adjust.blackWhite', 'layer.adjust.photoFilter', '-', 'layer.adjust.invert', 'layer.adjust.posterize',
+        'layer.adjust.threshold', 'layer.adjust.gradientMap'] },
+      'layer.adjustmentOptions',
       { label: 'Layer Mask', items: ['mask.revealAll', 'mask.hideAll', 'mask.revealSelection', 'mask.hideSelection', '-',
         'mask.toggle', 'mask.apply', 'mask.delete'] },
+      '-', 'layer.group', 'layer.ungroup', '-',
       'layer.lock', 'layer.hide', '-', 'layer.front', 'layer.forward', 'layer.backward', 'layer.back', '-',
       'layer.selectUp', 'layer.selectDown', '-', 'layer.mergeDown', 'layer.mergeVisible', 'layer.flatten'],
   },
