@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PhotoForge</title>
+  <meta name="description" content="A Photoshop-style photo editor that runs entirely in your browser.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23001e36'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='700' font-size='15' fill='%2331a8ff' text-anchor='middle'%3EPf%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <div id="app">
+    <header id="menubar"></header>
+    <div id="optionsbar"></div>
+    <div id="main">
+      <nav id="toolbar" aria-label="Tools"></nav>
+      <section id="center">
+        <div id="tabs" role="tablist"></div>
+        <div id="workspace">
+          <canvas id="view"></canvas>
+          <div id="welcome" hidden>
+            <div class="welcome-card">
+              <div class="welcome-logo">Pf</div>
+              <h1>PhotoForge</h1>
+              <p>A layer-based photo editor that runs in your browser. Your images never leave your computer.</p>
+              <div class="welcome-actions">
+                <button class="btn btn-primary" data-action="file.new">Create new</button>
+                <button class="btn" data-action="file.open">Open image…</button>
+              </div>
+              <p class="welcome-hint">Or drop an image anywhere on this window, or paste one with Ctrl+V.</p>
+            </div>
+          </div>
+          <div id="drop-overlay" hidden><div>Drop image to open</div></div>
+          <div id="toast" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+      <aside id="panels" aria-label="Panels"></aside>
+    </div>
+    <footer id="statusbar"></footer>
+  </div>
+  <div id="modal-root"></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
