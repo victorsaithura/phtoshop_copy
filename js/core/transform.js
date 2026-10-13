@@ -71,32 +71,35 @@ export function resizeImage(app, w, h, method = 'smooth') {
   const sy = h / doc.height;
   app.transact('Image Size', docSpec(doc), () => {
     for (const l of doc.layers) {
-      if (l.text) {
-        // Type stays editable: scale the font instead of the pixels.
-        l.text = { ...l.text, size: Math.max(1, Math.round(l.text.size * Math.sqrt(sx * sy) * 10) / 10) };
-        renderText(l, false);
-        l.x = Math.round(l.x * sx);
-        l.y = Math.round(l.y * sy);
-        continue;
-      }
       const x0 = Math.round(l.x * sx);
       const y0 = Math.round(l.y * sy);
-      const nw = Math.max(1, Math.round((l.x + l.width) * sx) - x0);
-      const nh = Math.max(1, Math.round((l.y + l.height) * sy) - y0);
+      // Resize the mask in document space first (it is stored relative to the layer).
+      let maskAt = null;
       if (l.mask) {
         const m = l.mask;
         const mx = Math.round((l.x + m.ox) * sx);
         const my = Math.round((l.y + m.oy) * sy);
         const mw = Math.max(1, Math.round((l.x + m.ox + m.width) * sx) - mx);
         const mh = Math.max(1, Math.round((l.y + m.oy + m.height) * sy) - my);
-        m.canvas = resampleCanvas(m.canvas, mw, mh, method);
-        m.ox = mx - x0;
-        m.oy = my - y0;
+        maskAt = { canvas: resampleCanvas(m.canvas, mw, mh, method), x: mx, y: my };
       }
-      l.canvas = resampleCanvas(l.canvas, nw, nh, method);
+      if (l.text) {
+        // Type stays editable: scale the font instead of the pixels.
+        l.text = { ...l.text, size: Math.max(1, Math.round(l.text.size * Math.sqrt(sx * sy) * 10) / 10) };
+        renderText(l, false);
+      } else {
+        const nw = Math.max(1, Math.round((l.x + l.width) * sx) - x0);
+        const nh = Math.max(1, Math.round((l.y + l.height) * sy) - y0);
+        l.canvas = resampleCanvas(l.canvas, nw, nh, method);
+      }
       l.x = x0;
       l.y = y0;
-      l.mask?.ensureCovers(l, l.bounds);
+      if (maskAt) {
+        l.mask.canvas = maskAt.canvas;
+        l.mask.ox = maskAt.x - x0;
+        l.mask.oy = maskAt.y - y0;
+        l.mask.ensureCovers(l, l.bounds);
+      }
     }
     doc.width = w;
     doc.height = h;

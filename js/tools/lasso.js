@@ -129,8 +129,12 @@ export class PolygonLassoTool extends Tool {
       return;
     }
     const [fx, fy] = this.points[0];
-    const nearStart = Math.hypot(e.x - fx, e.y - fy) * this.app.view.zoom <= 7;
-    if (nearStart || now - this.lastClick < 300) {
+    const [lx, ly] = this.points[this.points.length - 1];
+    const zoom = this.app.view.zoom;
+    const nearStart = Math.hypot(e.x - fx, e.y - fy) * zoom <= 7;
+    // A double-click (second click on the same spot) also closes the shape.
+    const doubleClick = now - this.lastClick < 300 && Math.hypot(e.x - lx, e.y - ly) * zoom <= 4;
+    if (nearStart || doubleClick) {
       this.finish();
       return;
     }

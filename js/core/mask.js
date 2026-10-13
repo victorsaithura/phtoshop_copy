@@ -64,15 +64,16 @@ export class Mask {
   }
 
   /** Write mask values for a document rect, into `target` (defaults to this mask's canvas). */
-  write(layer, r, values, target = this.canvas) {
-    this.ensureCovers(layer, r);
+  write(layer, r, values, target = null) {
+    this.ensureCovers(layer, r); // may replace this.canvas, so pick the target afterwards
+    const out = target || this.canvas;
     const b = this.bounds(layer);
     const img = new ImageData(r.w, r.h);
     for (let i = 0; i < values.length; i++) {
       img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = 255;
       img.data[i * 4 + 3] = values[i];
     }
-    target.getContext('2d').putImageData(img, r.x - b.x, r.y - b.y);
+    out.getContext('2d').putImageData(img, r.x - b.x, r.y - b.y);
   }
 
   snapshot(layer, rect) {

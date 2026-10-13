@@ -157,21 +157,27 @@ export function createActions(app, getMenus) {
   def('edit.copy', 'Copy', () => copy(false), { enabled: hasDoc, shortcut: 'Ctrl+C' });
   def('edit.copyMerged', 'Copy Merged', () => copy(true), { enabled: hasDoc, shortcut: 'Ctrl+Shift+C' });
   // Ctrl+V is left to the browser so the paste event can read system images (see io.js).
+  // From the menu, our own clipboard wins; otherwise try the system clipboard briefly
+  // (some browsers ask the user first, so don't wait forever).
   def('edit.paste', 'Paste', async () => {
+    if (app.clipboard) {
+      pasteInternal(app);
+      return;
+    }
     try {
-      const items = await navigator.clipboard.read();
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500));
+      const items = await Promise.race([navigator.clipboard.read(), timeout]);
       for (const item of items) {
         const type = item.types.find((t) => t.startsWith('image/'));
-        if (!type || (app.clipboard && !app.clipboard.systemCopied)) continue;
+        if (!type) continue;
         const canvas = await loadImage(await item.getType(type));
         if (app.doc) pasteImage(app, canvas);
         return;
       }
     } catch {
-      /* clipboard read not permitted: fall back to the internal clipboard */
+      /* clipboard unavailable or not permitted */
     }
-    if (app.clipboard) pasteInternal(app);
-    else app.toast('Nothing to paste. Copy something first, or press Ctrl+V to paste an image from another app.');
+    app.toast('Nothing to paste. Copy something first, or press Ctrl+V to paste an image from another app.');
   }, { enabled: hasDoc, shortcut: 'Ctrl+V', keys: [] });
   def('edit.clear', 'Clear', () => {
     if (editingMask(app)) {

@@ -152,6 +152,9 @@ const EXTRA_KEYS = [
   ['Default colors', 'D'],
   ['Nudge layer or selection (Move tool)', 'Arrow keys (Shift = 10px)'],
   ['Zoom', 'Ctrl + mouse wheel / pinch'],
+  ['Set the Clone Stamp / Healing Brush source', 'Alt + click'],
+  ['Commit text', 'Ctrl+Enter (Esc cancels)'],
+  ['Apply crop or Free Transform', 'Enter (Esc cancels)'],
 ];
 
 export function shortcutsDialog(app, menus) {
@@ -180,8 +183,8 @@ export function aboutDialog() {
     body: h('div', {},
       h('p', {}, 'PhotoForge is a layer-based photo editor that runs entirely in your browser. ' +
         'Images are processed locally and never uploaded.'),
-      h('p', { class: 'form-note' }, 'Includes layers, selections, painting, fills, gradients, adjustments, filters, ' +
-        'crop and image transforms, history and export.')),
+      h('p', { class: 'form-note' }, 'Includes layers and masks, selections, painting and retouching, type, shapes, ' +
+        'adjustments, filters, crop and transforms, history, project files and export.')),
     buttons: [{ label: 'Close', primary: true }],
   });
 }
