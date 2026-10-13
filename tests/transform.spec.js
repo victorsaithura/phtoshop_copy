@@ -74,3 +74,20 @@ test('a layer mask is transformed with its layer', async ({ page }) => {
   expect(await compositePixel(page, 325, 125)).toEqual([255, 0, 0, 255]);
   expect(await compositePixel(page, 375, 125)).toEqual([255, 255, 255, 255]);
 });
+
+test('a quick press right after a handle drag is not a double-click', async ({ page }) => {
+  await rectLayer(page);
+  await page.keyboard.press('Control+t');
+  await page.evaluate(() => {
+    // Simulate a fast machine: handle press, drag, then an immediate press inside the box.
+    const tool = photoforge.tool;
+    const v = photoforge.view;
+    const ev = (x, y) => ({ x, y, ...(() => { const p = v.docToScreen(x, y); return { sx: p.x, sy: p.y }; })(), shift: true });
+    tool.onPointerDown(ev(200, 150));
+    tool.onPointerMove(ev(400, 160));
+    tool.onPointerUp(ev(400, 160));
+    tool.onPointerDown(ev(250, 120));
+  });
+  expect(await page.evaluate(() => photoforge.tool.id)).toBe('transform');
+  await page.keyboard.press('Escape');
+});

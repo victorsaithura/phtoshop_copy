@@ -61,3 +61,30 @@ export function strokeOutline(ctx, buildPath, dashed = false) {
   }
   ctx.restore();
 }
+
+/**
+ * Double-click detection for tools: two quick presses on the same spot with
+ * no drag in between (a handle drag followed by a quick press is not one).
+ */
+export class DoubleClick {
+  constructor(ms = 350, px = 5) {
+    this.ms = ms;
+    this.px = px;
+    this.last = null;
+  }
+
+  /** Call on pointerdown; returns true when this press completes a double-click. */
+  down(e) {
+    const now = performance.now();
+    const l = this.last;
+    const hit = !!l && !l.moved && now - l.t < this.ms && Math.hypot(e.sx - l.sx, e.sy - l.sy) <= this.px;
+    this.last = hit ? null : { t: now, sx: e.sx, sy: e.sy, moved: false };
+    return hit;
+  }
+
+  /** Call on pointermove while pressed. */
+  move(e) {
+    const l = this.last;
+    if (l && !l.moved && Math.hypot(e.sx - l.sx, e.sy - l.sy) > this.px) l.moved = true;
+  }
+}

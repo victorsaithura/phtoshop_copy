@@ -1,4 +1,4 @@
-import { Tool, strokeOutline } from './tool.js';
+import { Tool, DoubleClick, strokeOutline } from './tool.js';
 import { contentBounds, transformCanvasAt } from '../core/transform.js';
 import { createCanvas } from '../core/utils.js';
 
@@ -29,7 +29,7 @@ export class FreeTransformTool extends Tool {
     this.options = { smooth: true };
     this.t = null;
     this.drag = null;
-    this.lastDown = 0;
+    this.clicks = new DoubleClick();
     // A transform belongs to its document; drop it if that document goes away.
     app.on('document', () => {
       if (this.t && !app.doc?.layers.includes(this.t.layer)) this.discard();
@@ -117,12 +117,10 @@ export class FreeTransformTool extends Tool {
   onPointerDown(e) {
     if (!this.t) return;
     const hit = this._hit(e);
-    const now = performance.now();
-    if (hit === 'move' && now - this.lastDown < 350) {
+    if (this.clicks.down(e) && hit === 'move') {
       this.commit();
       return;
     }
-    this.lastDown = now;
     const t = this.t;
     const d = { hit, x: e.x, y: e.y, t0: { ...t } };
     if (HANDLES[hit]) {
@@ -135,6 +133,7 @@ export class FreeTransformTool extends Tool {
   onPointerMove(e) {
     const d = this.drag;
     if (!d) return;
+    this.clicks.move(e);
     const t = this.t;
     const t0 = d.t0;
     if (d.hit === 'move') {

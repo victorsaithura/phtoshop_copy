@@ -1,4 +1,4 @@
-import { Tool } from './tool.js';
+import { Tool, DoubleClick } from './tool.js';
 import { cropDocument } from '../core/transform.js';
 
 const RATIOS = [
@@ -64,7 +64,7 @@ export class CropTool extends Tool {
     this.options = { ratio: 'free', deleteCropped: true };
     this.rect = null; // null = the whole canvas
     this.drag = null;
-    this.lastDown = 0;
+    this.clicks = new DoubleClick();
   }
 
   get box() {
@@ -117,12 +117,10 @@ export class CropTool extends Tool {
 
   onPointerDown(e) {
     const hit = this._hit(e);
-    const now = performance.now();
-    if (hit === 'move' && now - this.lastDown < 350) {
+    if (this.clicks.down(e) && hit === 'move') {
       this.commit();
       return;
     }
-    this.lastDown = now;
     this.drag = { hit, x: e.x, y: e.y, orig: { ...this.box } };
     this.rect = hit === 'new' ? { x: e.x, y: e.y, w: 0, h: 0 } : { ...this.box };
   }
@@ -130,6 +128,7 @@ export class CropTool extends Tool {
   onPointerMove(e) {
     const d = this.drag;
     if (!d) return;
+    this.clicks.move(e);
     const ratio = this.ratio(e.shift);
     if (d.hit === 'new') {
       const w = e.x - d.x;
