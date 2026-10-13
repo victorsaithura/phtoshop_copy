@@ -4,6 +4,7 @@ const HINTS = {
   move: 'Drag to move the layer, or the selected pixels. Alt-drag moves a copy. Ctrl-click picks a layer.',
   'marquee-rect': 'Drag to select. Shift adds, Alt subtracts. Shift while dragging = square, Alt = from centre.',
   'marquee-ellipse': 'Drag to select. Shift adds, Alt subtracts. Shift while dragging = circle, Alt = from centre.',
+  crop: 'Drag the handles to set the crop or drag outside it for a new box. Enter or double-click crops, Esc resets.',
   eyedropper: 'Click to pick the foreground colour. Alt-click picks the background colour.',
   brush: 'Paint with the foreground colour. [ ] change size, Shift-click draws a straight line, Alt picks a colour.',
   pencil: 'Hard-edged painting. [ ] change size, Shift-click draws a straight line.',

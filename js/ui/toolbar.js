@@ -6,6 +6,7 @@ import { colorPickerDialog } from './dialogs.js';
 export const TOOL_GROUPS = [
   ['move'],
   ['marquee-rect', 'marquee-ellipse'],
+  ['crop'],
   ['eyedropper'],
   ['brush', 'pencil'],
   ['eraser'],

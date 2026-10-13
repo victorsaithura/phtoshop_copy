@@ -160,6 +160,15 @@ export class Selection {
     this._update();
   }
 
+  /** Empty selection for a document of a new size (after crop, resize, rotate…). */
+  reset(width, height) {
+    this.width = width;
+    this.height = height;
+    this.mask = null;
+    this.lastMask = null;
+    this._update();
+  }
+
   reselect() {
     if (!this.lastMask) return false;
     this.mask = cloneCanvas(this.lastMask, { readFrequently: true });

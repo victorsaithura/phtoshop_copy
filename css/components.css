@@ -69,13 +69,24 @@ select { padding: 0 4px; cursor: pointer; }
 .menu-item {
   display: flex; align-items: center; justify-content: space-between; gap: 24px;
   width: 100%; height: 26px; padding: 0 14px 0 22px;
-  background: none; border: 0; color: var(--text); text-align: left; cursor: default;
+  background: none; border: 0; color: var(--text); text-align: left; cursor: default; white-space: nowrap;
 }
 .menu-item:hover:not(:disabled) { background: var(--accent); color: #fff; }
 .menu-item:disabled { color: var(--text-faint); }
 .menu-shortcut { color: var(--text-dim); font-size: 11px; }
 .menu-item:hover:not(:disabled) .menu-shortcut { color: #e8f1ff; }
 .menu-sep { height: 1px; margin: 4px 0; background: var(--border-light); }
+.menu-sub { position: relative; }
+.menu-sub > .menu-dropdown { display: none; top: -5px; left: 100%; border-radius: var(--radius); }
+.menu-sub > .menu-dropdown.flip { left: auto; right: 100%; }
+.menu-sub.open > .menu-dropdown { display: block; }
+.menu-sub.open > .menu-item:not(:disabled) { background: var(--hover); }
+.menu-arrow { color: var(--text-dim); font-size: 10px; }
+@media (max-width: 600px) {
+  /* Submenus expand in place on phones. */
+  .menu-dropdown { max-height: calc(100dvh - 40px); overflow-y: auto; }
+  .menu-sub > .menu-dropdown { position: static; min-width: 0; padding: 0 0 0 12px; border: 0; box-shadow: none; background: transparent; }
+}
 
 /* ---------- Options bar ---------- */
 .opt-tool { display: flex; align-items: center; gap: 6px; color: var(--text); padding-right: 4px; }
@@ -239,7 +250,45 @@ select { padding: 0 4px; cursor: pointer; }
   width: 100%; max-width: 420px; max-height: calc(100vh - 32px); display: flex; flex-direction: column;
   background: #2f2f2f; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
 }
-.modal-header { padding: 12px 16px 4px; font-size: 14px; font-weight: 600; }
+.modal-header { padding: 12px 16px 4px; font-size: 14px; font-weight: 600; cursor: move; touch-action: none; }
+.modal-backdrop.side {
+  background: transparent; justify-content: flex-end; align-items: flex-start;
+  padding: 72px calc(var(--panels-w) + 24px) 16px 16px;
+}
+.modal-backdrop.side .modal { max-width: 340px; box-shadow: 0 14px 44px rgba(0, 0, 0, 0.7); }
+@media (max-width: 900px) {
+  .modal-backdrop.side { padding: 64px 12px 12px; }
+}
+
+/* Adjustment dialogs */
+.adjust-controls { display: flex; flex-direction: column; gap: 10px; }
+.adjust-row { display: flex; flex-direction: column; gap: 4px; }
+.adjust-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.adjust-value { display: inline-flex; align-items: center; gap: 4px; }
+.adjust-value .num-input { width: 64px; text-align: right; }
+.adjust-row .range { width: 100%; }
+.adjust-heading { margin-top: 4px; color: var(--accent-hover); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+.adjust-inline { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.adjust-inline input[type="color"] { width: 48px; height: 24px; padding: 0; border: 1px solid var(--border-light); background: none; }
+.adjust-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+.histogram { width: 100%; height: 110px; display: block; background: #1c1c1c; border: 1px solid #111; border-radius: 3px; }
+.marker-strip { position: relative; height: 12px; margin: 2px 6px 6px; cursor: ew-resize; touch-action: none; }
+.marker-strip.output { height: 22px; margin-top: 4px; }
+.marker-strip.output::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 9px; border-radius: 2px;
+  background: linear-gradient(90deg, #000, #fff); border: 1px solid #555;
+}
+.marker {
+  position: absolute; bottom: 0; width: 0; height: 0; transform: translateX(-6px);
+  border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid var(--c);
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.9));
+}
+.levels-fields { display: flex; justify-content: space-between; gap: 6px; }
+.levels-fields input { width: 60px; text-align: center; }
+.curves-canvas { width: 100%; aspect-ratio: 1; display: block; background: #1c1c1c; border: 1px solid #111; border-radius: 3px; cursor: crosshair; touch-action: none; }
+.anchor-grid { display: grid; grid-template-columns: repeat(3, 26px); gap: 3px; }
+.anchor-grid button { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border-light); border-radius: 3px; background: var(--bg-input); cursor: pointer; }
+.anchor-grid button.active { background: var(--accent); border-color: var(--accent); }
 .modal-body { padding: 10px 16px; overflow-y: auto; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px 14px; }
 .form-row { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 8px; margin-bottom: 8px; }

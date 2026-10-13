@@ -22,6 +22,7 @@ export class App extends Emitter {
     this.tool = null;
     this.hover = null;
     this.selectionOffset = null; // live offset while dragging a selection
+    this.preview = null; // { layer, canvas, x, y } shown instead of a layer (adjustment previews)
     this.clipboard = null;
     this.spaceDown = false;
     this.panning = false;
@@ -83,6 +84,7 @@ export class App extends Emitter {
 
   _documentChanged() {
     this.selectionOffset = null;
+    this.preview = null;
     this.activePointer = null;
     for (const evt of ['document', 'layers', 'selection', 'history', 'view', 'pixels']) this.emit(evt);
     this.renderer.request(true);

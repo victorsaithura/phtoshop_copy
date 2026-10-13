@@ -72,8 +72,10 @@ export class Renderer {
   _recomposite() {
     const doc = this.app.doc;
     if (!doc) return;
-    const tool = this.app.tool;
-    const override = tool && tool.layerOverride ? (layer, rect) => tool.layerOverride(layer, rect) : null;
+    const { tool, preview } = this.app;
+    // Live previews: an adjustment dialog's result, or the active tool's work in progress.
+    const override = (layer, rect) =>
+      (preview && preview.layer === layer ? preview : null) || (tool?.layerOverride ? tool.layerOverride(layer, rect) : null);
     doc.composite(this.composite, override, this.fullDirty ? null : this.dirtyRect);
     this.compositeDirty = false;
     this.fullDirty = false;

@@ -9,14 +9,16 @@ export const isModalOpen = () => openCount > 0;
  * Generic modal. buttons: [{ label, primary?, value?, onClick?() }]
  * onClick returning false keeps the dialog open.
  */
-export function openModal({ title, body, buttons = [], width, onClose }) {
+export function openModal({ title, body, buttons = [], width, onClose, side = false }) {
   const root = document.getElementById('modal-root');
   const footer = h('div', { class: 'modal-footer' });
   const modal = h('div', {
     class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title,
     style: width ? { maxWidth: `${width}px` } : null,
   }, h('div', { class: 'modal-header' }, title), h('div', { class: 'modal-body' }, body), footer);
-  const backdrop = h('div', { class: 'modal-backdrop' }, modal);
+  // side: dialog sits beside the canvas without dimming it (for live previews).
+  const backdrop = h('div', { class: 'modal-backdrop' + (side ? ' side' : '') }, modal);
+  makeDraggable(modal);
 
   let closed = false;
   const close = (result) => {
@@ -52,7 +54,7 @@ export function openModal({ title, body, buttons = [], width, onClose }) {
   let downOnBackdrop = false;
   backdrop.addEventListener('pointerdown', (e) => { downOnBackdrop = e.target === backdrop; });
   backdrop.addEventListener('click', (e) => {
-    if (downOnBackdrop && e.target === backdrop) close(undefined);
+    if (!side && downOnBackdrop && e.target === backdrop) close(undefined);
   });
 
   root.append(backdrop);
@@ -63,6 +65,31 @@ export function openModal({ title, body, buttons = [], width, onClose }) {
     if (f?.select && f.type === 'text') f.select();
   });
   return { close, el: modal };
+}
+
+/** Drag a dialog by its title bar. */
+function makeDraggable(modal) {
+  const header = modal.querySelector('.modal-header');
+  let ox = 0;
+  let oy = 0;
+  header.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const start = { x: e.clientX, y: e.clientY, ox, oy };
+    header.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      ox = start.ox + ev.clientX - start.x;
+      oy = start.oy + ev.clientY - start.y;
+      modal.style.transform = `translate(${ox}px, ${oy}px)`;
+    };
+    const up = () => {
+      header.removeEventListener('pointermove', move);
+      header.removeEventListener('pointerup', up);
+      header.removeEventListener('pointercancel', up);
+    };
+    header.addEventListener('pointermove', move);
+    header.addEventListener('pointerup', up);
+    header.addEventListener('pointercancel', up);
+  });
 }
 
 export function promptDialog({ title, label, value = '' }) {
@@ -132,8 +159,9 @@ export function shortcutsDialog(app, menus) {
   const rows = [h('tr', {}, h('th', { colspan: 2 }, 'Tools'))];
   for (const t of app.tools.values()) rows.push(row(t.name, t.key));
   for (const [a, b] of EXTRA_KEYS) rows.push(row(a, b));
+  const flatten = (items) => items.flatMap((it) => (typeof it === 'object' ? flatten(it.items) : [it]));
   for (const menu of menus) {
-    const items = menu.items.map((id) => app.actions[id]).filter((a) => a && a.shortcut);
+    const items = flatten(menu.items).map((id) => app.actions[id]).filter((a) => a && a.shortcut);
     if (!items.length) continue;
     rows.push(h('tr', {}, h('th', { colspan: 2 }, menu.label)));
     for (const a of items) rows.push(row(a.label, formatShortcut(a.shortcut)));
@@ -152,7 +180,8 @@ export function aboutDialog() {
     body: h('div', {},
       h('p', {}, 'PhotoForge is a layer-based photo editor that runs entirely in your browser. ' +
         'Images are processed locally and never uploaded.'),
-      h('p', { class: 'form-note' }, 'Phase 1: layers, selections, painting, fills, gradients, history and export.')),
+      h('p', { class: 'form-note' }, 'Includes layers, selections, painting, fills, gradients, adjustments, filters, ' +
+        'crop and image transforms, history and export.')),
     buttons: [{ label: 'Close', primary: true }],
   });
 }

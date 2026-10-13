@@ -22,7 +22,7 @@ Any static file server works (`npx serve`, VS Code Live Server, …).
 
 On a free GitHub plan, Pages only works for public repositories.
 
-## Features (Phase 1)
+## Features
 
 **Documents**
 - New document with presets (HD, 4K, square post, story, A4, Letter…), or open PNG, JPEG, WebP, GIF, BMP and SVG files
@@ -42,6 +42,7 @@ On a free GitHub plan, Pages only works for public repositories.
 |---|---|---|
 | Move | V | Moves the layer, or only the selected pixels; Alt-drag moves a copy; arrow keys nudge |
 | Rectangular / Elliptical Marquee | M | New / add / subtract / intersect, feather, drag a selection to move it |
+| Crop | C | Handles, aspect-ratio presets, rule-of-thirds guides, can extend the canvas; Enter or double-click to crop |
 | Eyedropper | I | Point or averaged sample, current layer or all layers |
 | Brush / Pencil | B | Size, hardness, opacity, flow, pen pressure, Shift-click straight lines |
 | Eraser | E | Soft or hard erasing to transparency |
@@ -49,8 +50,22 @@ On a free GitHub plan, Pages only works for public repositories.
 | Hand | H | Hold Space with any tool to pan |
 | Zoom | Z | Alt-click zooms out; Ctrl + scroll or pinch also zooms |
 
+**Image menu**
+- Adjustments with live preview: Brightness/Contrast, Levels (Ctrl+L), Curves (Ctrl+M), Exposure, Vibrance, Hue/Saturation (Ctrl+U), Color Balance (Ctrl+B), Black & White, Photo Filter, Invert (Ctrl+I), Posterize, Threshold, Gradient Map, Desaturate
+- Auto Tone and Auto Contrast
+- Image Size (with resampling), Canvas Size (with anchor and extension color), Crop to Selection, Duplicate
+- Image Rotation: 180°, 90° clockwise/counter-clockwise, arbitrary angle, flip canvas horizontally/vertically
+
+**Filter menu**
+- Blur: Gaussian, Motion, Box · Sharpen: Sharpen, Unsharp Mask · Noise: Add Noise · Pixelate: Mosaic
+- Stylize: Emboss, Find Edges · Render: Vignette · Other: High Pass
+- Last Filter (Ctrl+Alt+F) repeats the previous filter with the same settings
+
+Adjustments and filters apply to the active layer, limited to the selection when there is one (feathered selections blend smoothly). Dialogs sit beside the canvas, can be dragged by their title, and show a live preview you can toggle.
+
 **Editing**
-- Unlimited-style undo/redo (last 60 steps) and a History panel to jump to any step
+- Undo/redo (last 60 steps) and a History panel to jump to any step
+- Edit ▸ Transform: flip or rotate the active layer
 - Cut, copy, copy merged, paste (in place when pasting your own copy), clear and fill
 - Select all, deselect, reselect, inverse
 - Color panel with HSV picker, hex/RGB input and swatches
@@ -59,7 +74,8 @@ Press **?** inside the app for the full list of keyboard shortcuts. On a Mac, us
 
 ## Roadmap
 
-- **Phase 2: adjustments and filters.** Brightness/Contrast, Levels, Curves, Hue/Saturation, Color Balance, Exposure, Black & White, Invert, Threshold, Posterize. Gaussian and Motion Blur, Unsharp Mask, Noise, Pixelate, Emboss, Vignette. Image Size, Canvas Size, Crop, Rotate, Flip.
+- **Phase 1 (done):** documents, layers, selections, painting, fills, gradients, history, export.
+- **Phase 2 (done):** adjustments, filters, crop, image and canvas size, rotation and flips.
 - **Phase 3: pro tools.** Lasso, Magic Wand, Clone Stamp, Healing Brush, Dodge/Burn, Blur/Smudge brushes, Text, Shapes, layer masks, and saving projects with their layers.
 
 ## Project layout
@@ -72,7 +88,9 @@ js/app.js             application state, documents, history, pointer input
 js/actions.js         every menu command (also used by keyboard shortcuts)
 js/shortcuts.js       keyboard handling
 js/io.js              open, place, paste, export
-js/core/              document model: layers, selection, history, viewport, renderer
+js/actions-image.js   Image and Filter menu commands
+js/core/              document model: layers, selection, history, viewport, renderer,
+                      adjustments, filters, transforms and the live-preview engine
 js/tools/             one file per tool family
 js/ui/                menu bar, toolbar, options bar, panels, dialogs
 ```

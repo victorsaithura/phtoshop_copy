@@ -1,9 +1,11 @@
 import { App } from './app.js';
 import { createActions } from './actions.js';
+import { registerImageActions } from './actions-image.js';
 import { setupShortcuts } from './shortcuts.js';
 import { setupDropAndPaste } from './io.js';
 import { MoveTool } from './tools/move.js';
 import { MarqueeTool } from './tools/marquee.js';
+import { CropTool } from './tools/crop.js';
 import { BrushTool } from './tools/brush.js';
 import { PaintBucketTool } from './tools/bucket.js';
 import { GradientTool } from './tools/gradient.js';
@@ -28,6 +30,7 @@ for (const tool of [
   new MoveTool(app),
   new MarqueeTool(app, 'rect'),
   new MarqueeTool(app, 'ellipse'),
+  new CropTool(app),
   new EyedropperTool(app),
   new BrushTool(app, 'brush'),
   new BrushTool(app, 'pencil'),
@@ -41,6 +44,7 @@ for (const tool of [
 }
 
 app.actions = createActions(app, () => MENUS);
+registerImageActions(app, app.actions);
 
 new MenuBar(app, $('#menubar'));
 new OptionsBar(app, $('#optionsbar'));
