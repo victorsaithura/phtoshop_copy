@@ -91,6 +91,17 @@ export class Toolbar {
     const reset = h('button', { type: 'button', class: 'color-default', title: 'Default foreground and background colors (D)',
       onClick: () => this.app.resetColors() }, icon('reset-colors', 12));
     this.el.append(h('div', { class: 'colors' }, this.fgChip, this.bgChip, swap, reset));
+    this.qmBtn = h('button', {
+      type: 'button', class: 'tool-btn quick-mask-btn', title: 'Edit in Quick Mask Mode (Q)', 'aria-label': 'Quick Mask',
+      'aria-pressed': 'false', onClick: () => this.app.runAction('select.quickMask'),
+    }, icon('mask', 18));
+    this.el.append(this.qmBtn);
+    const syncQM = () => {
+      const on = !!this.app.doc?.quickMask;
+      this.qmBtn.classList.toggle('active', on);
+      this.qmBtn.setAttribute('aria-pressed', String(on));
+    };
+    for (const evt of ['quickmask', 'document', 'history']) this.app.on(evt, syncQM);
 
     this._sync();
     this._syncColors();

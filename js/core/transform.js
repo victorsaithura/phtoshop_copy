@@ -104,6 +104,7 @@ export function resizeImage(app, w, h, method = 'smooth') {
     doc.width = w;
     doc.height = h;
     doc.selection.reset(w, h);
+    doc.guides = doc.guides.map((g) => ({ o: g.o, p: Math.round(g.p * (g.o === 'h' ? sy : sx)) }));
   });
   app.view.fit(w, h);
   app.viewChanged();
@@ -127,6 +128,7 @@ export function resizeCanvas(app, w, h, anchor = { x: 0.5, y: 0.5 }, fill = null
     doc.width = w;
     doc.height = h;
     doc.selection.reset(w, h);
+    doc.guides = doc.guides.map((g) => ({ o: g.o, p: g.p + (g.o === 'h' ? dy : dx) }));
     const bottom = doc.layers.find((l) => l.isPixel);
     if (fill && bottom) {
       const ext = createCanvas(w, h);
@@ -177,6 +179,7 @@ export function cropDocument(app, rect, deleteCropped = true) {
     doc.width = r.w;
     doc.height = r.h;
     doc.selection.reset(r.w, r.h);
+    doc.guides = doc.guides.map((g) => ({ o: g.o, p: g.p - (g.o === 'h' ? r.y : r.x) }));
   });
   app.view.fit(r.w, r.h);
   app.viewChanged();
@@ -208,6 +211,12 @@ export function rotateDocument(app, deg) {
       l.text = null;
       transformLayerCanvas(l, m, !exact);
     }
+    // Guides turn with quarter turns; other angles drop them.
+    doc.guides = !exact ? [] : doc.guides.map((g) => {
+      const pt = m.transformPoint(new DOMPoint(g.o === 'v' ? g.p : 0, g.o === 'h' ? g.p : 0));
+      const o = turn === 180 ? g.o : g.o === 'h' ? 'v' : 'h';
+      return { o, p: Math.round(o === 'h' ? pt.y : pt.x) };
+    });
     doc.width = nw;
     doc.height = nh;
     doc.selection.reset(nw, nh);
@@ -224,6 +233,10 @@ export function flipDocument(app, horizontal) {
       l.text = null;
       transformLayerCanvas(l, m, false);
     }
+    doc.guides = doc.guides.map((g) => {
+      const mirrored = (horizontal && g.o === 'v') || (!horizontal && g.o === 'h');
+      return mirrored ? { o: g.o, p: (g.o === 'v' ? doc.width : doc.height) - g.p } : { ...g };
+    });
     doc.selection.reset(doc.width, doc.height);
   });
 }
@@ -280,5 +293,6 @@ export function duplicateDocument(app, name) {
   doc.activeId = doc.layers[Math.max(0, src.activeIndex)].id;
   doc.layerCounter = src.layerCounter;
   doc.groupCounter = src.groupCounter;
+  doc.guides = src.guides.map((g) => ({ ...g }));
   app.addDocument(doc, 'Duplicate Image');
 }

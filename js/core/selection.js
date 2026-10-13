@@ -198,6 +198,34 @@ export class Selection {
     this._update({ x: this.bounds.x + dx, y: this.bounds.y + dy, w: this.bounds.w, h: this.bounds.h });
   }
 
+  /**
+   * Replace the selection with alpha values (0–255, one per document pixel).
+   * `region` bounds where values can be non-zero, which keeps this fast.
+   */
+  fromAlpha(alpha, region = null) {
+    const W = this.width;
+    const r = rectIntersect(region ? rectRound(region) : { x: 0, y: 0, w: W, h: this.height }, { x: 0, y: 0, w: W, h: this.height });
+    if (!r) {
+      this.mask = null;
+      this._update();
+      return;
+    }
+    const img = new ImageData(r.w, r.h);
+    const d = img.data;
+    for (let y = 0; y < r.h; y++) {
+      for (let x = 0; x < r.w; x++) {
+        const a = alpha[(r.y + y) * W + r.x + x];
+        if (!a) continue;
+        const i = (y * r.w + x) * 4;
+        d[i] = d[i + 1] = d[i + 2] = 255;
+        d[i + 3] = a;
+      }
+    }
+    this.mask = this._newMask();
+    this.mask.getContext('2d').putImageData(img, r.x, r.y);
+    this._update(r);
+  }
+
   /** Is the document pixel at (x, y) selected (alpha >= 128)? */
   contains(x, y) {
     if (!this.alpha) return false;

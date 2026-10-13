@@ -28,6 +28,7 @@ export function serializeDocument(doc, encode = (c) => c.toDataURL('image/png'))
     activeIndex: doc.activeIndex,
     layerCounter: doc.layerCounter,
     groupCounter: doc.groupCounter,
+    guides: doc.guides.map((g) => ({ ...g })),
     layers: doc.layers.map((l) => ({
       kind: l.kind,
       parent: l.parent ? doc.layers.indexOf(l.parent) : -1,
@@ -220,5 +221,10 @@ export async function parseProject(text) {
   doc.activeId = doc.layers[clamp(Math.round(num(p.activeIndex)), 0, doc.layers.length - 1)].id;
   doc.layerCounter = Math.max(0, Math.round(num(p.layerCounter, doc.layers.length)));
   doc.groupCounter = Math.max(0, Math.round(num(p.groupCounter, 0)));
+  if (Array.isArray(p.guides)) {
+    doc.guides = p.guides.slice(0, 500)
+      .filter((g) => g && (g.o === 'h' || g.o === 'v') && Number.isFinite(Number(g.p)))
+      .map((g) => ({ o: g.o, p: clamp(Math.round(Number(g.p)), -MAX_SIDE, 2 * MAX_SIDE) }));
+  }
   return doc;
 }

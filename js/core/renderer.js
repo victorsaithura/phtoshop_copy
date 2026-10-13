@@ -1,4 +1,6 @@
 import { createCanvas, rectUnion } from './utils.js';
+import { drawGrid, drawGuides, drawRulers } from '../guides.js';
+import { QuickMaskOverlay } from '../quick-mask.js';
 
 /**
  * Draws the active document into the workspace canvas: checkerboard,
@@ -17,6 +19,7 @@ export class Renderer {
     this.ants = 0;
     this.dpr = 1;
     this.pattern = null;
+    this.quickMask = new QuickMaskOverlay();
     this.workspaceColor =
       getComputedStyle(document.documentElement).getPropertyValue('--bg-workspace').trim() || '#1f1f1f';
 
@@ -149,7 +152,13 @@ export class Renderer {
         vx0, vy0, vx1 - vx0, vy1 - vy0,
         x + vx0 * z, y + vy0 * z, (vx1 - vx0) * z, (vy1 - vy0) * z,
       );
+      // Quick Mask: red over what is not selected.
+      const qm = this.quickMask.get(app);
+      if (qm) {
+        ctx.drawImage(qm, vx0, vy0, vx1 - vx0, vy1 - vy0, x + vx0 * z, y + vy0 * z, (vx1 - vx0) * z, (vy1 - vy0) * z);
+      }
       if (z >= 8) this._pixelGrid(x, y, z, vx0, vy0, vx1, vy1);
+      drawGrid(ctx, app);
     }
     ctx.restore();
 
@@ -159,6 +168,8 @@ export class Renderer {
       app.tool.drawOverlay(ctx, v);
       ctx.restore();
     }
+    drawGuides(ctx, app);
+    drawRulers(ctx, app);
   }
 
   _pixelGrid(x, y, z, vx0, vy0, vx1, vy1) {

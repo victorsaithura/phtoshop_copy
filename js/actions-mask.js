@@ -3,9 +3,14 @@ import { rectIntersect, rectUnion } from './core/utils.js';
 
 export { maskValue };
 
-/** Whether edits currently go to the active layer's mask. */
+/** The layer whose mask edits go to: the Quick Mask while it is on, else the active layer. */
+export function maskTarget(app) {
+  return app.doc?.quickMask || app.doc?.activeLayer || null;
+}
+
+/** Whether edits currently go to a mask (the active layer's, or the Quick Mask). */
 export function editingMask(app) {
-  const layer = app.doc?.activeLayer;
+  const layer = maskTarget(app);
   return !!(layer && layer.mask && layer.maskSelected);
 }
 
@@ -15,7 +20,7 @@ export function editingMask(app) {
  */
 export function editMask(app, label, rect, fn) {
   const doc = app.doc;
-  const layer = doc.activeLayer;
+  const layer = maskTarget(app);
   const r = rectIntersect(rect, doc.bounds);
   if (!r || !layer?.mask) return;
   const sel = doc.selection;

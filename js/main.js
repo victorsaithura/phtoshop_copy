@@ -3,6 +3,7 @@ import { createActions } from './actions.js';
 import { registerImageActions } from './actions-image.js';
 import { registerMaskActions } from './actions-mask.js';
 import { registerLayerActions } from './actions-layers.js';
+import { registerPrecisionActions } from './actions-precision.js';
 import { setupShortcuts } from './shortcuts.js';
 import { setupDropAndPaste, openFiles } from './io.js';
 import { setupAutosave } from './autosave.js';
@@ -26,6 +27,7 @@ import { StatusBar } from './ui/statusbar.js';
 import { LayersPanel } from './ui/layers-panel.js';
 import { HistoryPanel } from './ui/history-panel.js';
 import { ColorPanel } from './ui/color-panel.js';
+import { NavigatorPanel, InfoPanel, HistogramPanel } from './ui/info-panels.js';
 import { h } from './ui/dom.js';
 import { icon } from './ui/icons.js';
 
@@ -61,6 +63,7 @@ for (const tool of [
 app.actions = createActions(app, () => MENUS);
 registerImageActions(app, app.actions);
 registerLayerActions(app, app.actions);
+registerPrecisionActions(app, app.actions);
 registerMaskActions(app, app.actions);
 
 new MenuBar(app, $('#menubar'));
@@ -83,9 +86,41 @@ function panel(title, content, { grow = false, collapsed = false } = {}) {
   return section;
 }
 
+/** Panels sharing one slot, switched by tabs (like Photoshop's panel groups). */
+function tabbedPanel(tabs) {
+  const bodies = tabs.map(({ el }, i) => h('div', { class: 'tab-body', hidden: i > 0 }, el));
+  const buttons = tabs.map(({ title }, i) => h('button', {
+    type: 'button', class: 'panel-tab' + (i ? '' : ' active'), role: 'tab', 'aria-selected': String(!i),
+    onClick: () => {
+      section.classList.remove('collapsed');
+      buttons.forEach((b, j) => {
+        b.classList.toggle('active', i === j);
+        b.setAttribute('aria-selected', String(i === j));
+        bodies[j].hidden = i !== j;
+      });
+      tabs[i].panel?.onShow?.();
+    },
+  }, title));
+  const collapse = h('button', { type: 'button', class: 'panel-collapse', 'aria-label': 'Collapse panel', onClick: () => section.classList.toggle('collapsed') },
+    icon('chevron', 12));
+  const section = h('section', { class: 'panel' },
+    h('div', { class: 'panel-header panel-tabbar' }, h('div', { class: 'panel-tabs', role: 'tablist' }, buttons), collapse),
+    h('div', { class: 'panel-body' }, bodies));
+  return section;
+}
+
+const navigatorPanel = new NavigatorPanel(app);
+const histogramPanel = new HistogramPanel(app);
 $('#panels').append(
-  panel('Color', new ColorPanel(app).el),
-  panel('History', new HistoryPanel(app).el),
+  tabbedPanel([
+    { title: 'Color', el: new ColorPanel(app).el },
+    { title: 'Navigator', el: navigatorPanel.el, panel: navigatorPanel },
+    { title: 'Info', el: new InfoPanel(app).el },
+  ]),
+  tabbedPanel([
+    { title: 'History', el: new HistoryPanel(app).el },
+    { title: 'Histogram', el: histogramPanel.el, panel: histogramPanel },
+  ]),
   panel('Layers', new LayersPanel(app).el, { grow: true }),
 );
 

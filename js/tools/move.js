@@ -1,5 +1,6 @@
 import { Tool } from './tool.js';
 import { createCanvas, rectUnion } from '../core/utils.js';
+import { contentBounds } from '../core/transform.js';
 
 /**
  * Move Tool. Drags the active layer (a group moves with its contents), or the
@@ -38,8 +39,15 @@ export class MoveTool extends Tool {
   _begin(layer, duplicate) {
     const sel = this.doc.selection;
     const items = layer.isGroup ? [layer, ...this.doc.descendants(layer)] : [layer];
-    const d = { layer, items, orig: items.map((l) => [l.x, l.y]), dx: 0, dy: 0, float: null, duplicate };
-    if (sel.isEmpty()) return d;
+    const d = { layer, items, orig: items.map((l) => [l.x, l.y]), dx: 0, dy: 0, float: null, duplicate, box: null };
+    if (sel.isEmpty()) {
+      // What snaps: the visible content of the moving layers.
+      if (this.app.viewOptions.snap) {
+        for (const l of items) if (l.isPixel) d.box = rectUnion(d.box, contentBounds(l));
+      }
+      return d;
+    }
+    d.box = { ...sel.bounds };
 
     // Lift the selected pixels into a floating canvas.
     const b = sel.bounds;
@@ -76,11 +84,16 @@ export class MoveTool extends Tool {
       dx = Math.cos(angle) * len;
       dy = Math.sin(angle) * len;
     }
-    this._setOffset(Math.round(dx), Math.round(dy));
+    this._setOffset(Math.round(dx), Math.round(dy), true);
   }
 
-  _setOffset(dx, dy) {
+  _setOffset(dx, dy, snap = false) {
     const d = this.drag;
+    if (snap && d.box) {
+      const s = this.app.snapRect({ x: d.box.x + dx, y: d.box.y + dy, w: d.box.w, h: d.box.h });
+      dx += Math.round(s.dx);
+      dy += Math.round(s.dy);
+    }
     d.dx = dx;
     d.dy = dy;
     if (d.float) this.app.selectionOffset = { x: dx, y: dy };

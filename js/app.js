@@ -3,6 +3,7 @@ import { History } from './core/history.js';
 import { Viewport, MIN_ZOOM, MAX_ZOOM } from './core/viewport.js';
 import { Renderer } from './core/renderer.js';
 import { clamp, debounce, normalizeHex, rectUnion, storageGet, storageSet } from './core/utils.js';
+import { GuideController, loadViewOptions, snapPoint, snapRect } from './guides.js';
 
 const TOOL_STORAGE_KEY = 'photoforge.toolOptions';
 
@@ -27,6 +28,8 @@ export class App extends Emitter {
     this.spaceDown = false;
     this.panning = false;
     this.activePointer = null;
+    this.viewOptions = loadViewOptions(); // rulers, grid, guides, snapping
+    this.overlayCursor = null;
     this._emptyHistory = new History(1);
     this._saveToolOptions = debounce(() => this._persistToolOptions(), 400);
   }
@@ -37,8 +40,15 @@ export class App extends Emitter {
   init(canvas) {
     this.canvas = canvas;
     this.renderer = new Renderer(this, canvas);
+    this.guideCtl = new GuideController(this);
     this._bindPointer(canvas);
   }
+
+  /** A point pulled onto guides, the grid or the canvas edges when snapping is on. */
+  snapPoint(x, y) { return snapPoint(this, x, y); }
+
+  /** Offset that snaps a moving rectangle's edges or centre. */
+  snapRect(r) { return snapRect(this, r); }
 
   /* ---------- Documents ---------- */
 
@@ -188,7 +198,7 @@ export class App extends Emitter {
 
   updateCursor() {
     if (!this.canvas) return;
-    let cursor = this.tool?.cursor || 'default';
+    let cursor = this.overlayCursor || this.tool?.cursor || 'default';
     if (this.panning) cursor = 'grabbing';
     else if (this.spaceDown) cursor = 'grab';
     this.canvas.style.cursor = cursor;
@@ -202,6 +212,12 @@ export class App extends Emitter {
    */
   editableLayer(toolName = 'tool', { allowText = false, allowMask = false, allowGroup = false } = {}) {
     const doc = this.doc;
+    if (doc?.quickMask) {
+      // In Quick Mask mode, painting edits the selection.
+      if (allowMask) return doc.quickMask;
+      this.toast(`Could not use the ${toolName} in Quick Mask mode. Press Q to leave it.`);
+      return null;
+    }
     const layer = doc?.activeLayer;
     if (!layer) return null;
     const onMask = !!(layer.mask && layer.maskSelected);
@@ -320,6 +336,13 @@ export class App extends Emitter {
       }
       if (e.button !== 0) return;
       const ev = toEvent(e);
+      // Rulers and guides take the press before the tool.
+      if (this.guideCtl.down(ev)) {
+        this.activePointer = e.pointerId;
+        this.guideDragging = true;
+        this.renderer.request(false);
+        return;
+      }
       if (e.altKey && this.tool?.altEyedropper) {
         altPick = true;
         this.tools.get('eyedropper')?.pick(ev, 'fg');
@@ -357,10 +380,19 @@ export class App extends Emitter {
         return;
       }
       if (this.activePointer === e.pointerId) {
-        const list = this.tool?.wantsCoalesced && e.getCoalescedEvents ? e.getCoalescedEvents() : [];
-        if (list.length > 1) for (const ce of list) this.tool.onPointerMove(toEvent(ce));
-        else this.tool?.onPointerMove(ev);
+        if (this.guideDragging) {
+          this.guideCtl.move(ev);
+        } else {
+          const list = this.tool?.wantsCoalesced && e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+          if (list.length > 1) for (const ce of list) this.tool.onPointerMove(toEvent(ce));
+          else this.tool?.onPointerMove(ev);
+        }
       } else {
+        const c = this.guideCtl.cursor(ev);
+        if (c !== this.overlayCursor) {
+          this.overlayCursor = c;
+          this.updateCursor();
+        }
         this.tool?.onHover?.(ev);
       }
       this.renderer.request(false);
@@ -384,6 +416,13 @@ export class App extends Emitter {
       }
       if (this.activePointer === e.pointerId) {
         this.activePointer = null;
+        if (this.guideDragging) {
+          this.guideDragging = false;
+          if (e.type === 'pointercancel') this.guideCtl.drag = null;
+          else this.guideCtl.up(toEvent(e));
+          this.renderer.request(false);
+          return;
+        }
         if (e.type === 'pointercancel') this.tool?.cancel?.();
         else this.tool?.onPointerUp(toEvent(e));
         this.renderer.request(true);

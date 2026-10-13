@@ -44,8 +44,9 @@ export class MarqueeTool extends Tool {
       this.moving = { x: e.x, y: e.y, dx: 0, dy: 0 };
       return;
     }
+    const p = this.app.snapPoint(e.x, e.y);
     this.drag = {
-      x0: e.x, y0: e.y, x1: e.x, y1: e.y, mode,
+      x0: p.x, y0: p.y, x1: p.x, y1: p.y, mode,
       startShift: e.shift, startAlt: e.alt, shiftUp: false, altUp: false,
       constrain: false, center: false,
     };
@@ -61,8 +62,9 @@ export class MarqueeTool extends Tool {
     }
     const d = this.drag;
     if (!d) return;
-    d.x1 = e.x;
-    d.y1 = e.y;
+    const p = this.app.snapPoint(e.x, e.y);
+    d.x1 = p.x;
+    d.y1 = p.y;
     // A modifier used to pick the mode must be released before it can constrain.
     if (!e.shift) d.shiftUp = true;
     if (!e.alt) d.altUp = true;

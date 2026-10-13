@@ -108,6 +108,32 @@ export function promptDialog({ title, label, value = '' }) {
   });
 }
 
+/** Ask for one number; resolves with it, or null when cancelled. */
+export function numberDialog({ title, label, value, min = 0, max = 1000, step = 1, unit = 'pixels' }) {
+  return new Promise((resolve) => {
+    const input = h('input', { type: 'number', class: 'num-input', min, max, step, value, 'aria-label': label });
+    let result = null;
+    openModal({
+      title,
+      body: h('div', { class: 'form-row' }, h('label', {}, label), h('span', { class: 'num-unit' }, input, ` ${unit}`)),
+      buttons: [
+        { label: 'Cancel' },
+        {
+          label: 'OK',
+          primary: true,
+          onClick: () => {
+            const v = Number(input.value);
+            if (!Number.isFinite(v)) return false;
+            result = Math.min(max, Math.max(min, v));
+            return undefined;
+          },
+        },
+      ],
+      onClose: () => resolve(result),
+    });
+  });
+}
+
 export function confirmDialog({ title, message, okLabel = 'OK', cancelLabel = 'Cancel' }) {
   return new Promise((resolve) => {
     let ok = false;

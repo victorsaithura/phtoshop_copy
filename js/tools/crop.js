@@ -121,8 +121,9 @@ export class CropTool extends Tool {
       this.commit();
       return;
     }
-    this.drag = { hit, x: e.x, y: e.y, orig: { ...this.box } };
-    this.rect = hit === 'new' ? { x: e.x, y: e.y, w: 0, h: 0 } : { ...this.box };
+    const p = this.app.snapPoint(e.x, e.y);
+    this.drag = { hit, x: hit === 'move' ? e.x : p.x, y: hit === 'move' ? e.y : p.y, orig: { ...this.box } };
+    this.rect = hit === 'new' ? { x: p.x, y: p.y, w: 0, h: 0 } : { ...this.box };
   }
 
   onPointerMove(e) {
@@ -130,14 +131,17 @@ export class CropTool extends Tool {
     if (!d) return;
     this.clicks.move(e);
     const ratio = this.ratio(e.shift);
+    const p = this.app.snapPoint(e.x, e.y);
     if (d.hit === 'new') {
-      const w = e.x - d.x;
-      const hgt = ratio ? (Math.abs(w) / ratio) * (Math.sign(e.y - d.y) || 1) : e.y - d.y;
+      const w = p.x - d.x;
+      const hgt = ratio ? (Math.abs(w) / ratio) * (Math.sign(p.y - d.y) || 1) : p.y - d.y;
       this.rect = normalize({ x: d.x, y: d.y, w, h: hgt });
     } else if (d.hit === 'move') {
-      this.rect = { ...d.orig, x: d.orig.x + e.x - d.x, y: d.orig.y + e.y - d.y };
+      const moved = { ...d.orig, x: d.orig.x + e.x - d.x, y: d.orig.y + e.y - d.y };
+      const s = this.app.snapRect(moved);
+      this.rect = { ...moved, x: moved.x + s.dx, y: moved.y + s.dy };
     } else {
-      this.rect = resizeRect(d.orig, d.hit, e.x, e.y, ratio);
+      this.rect = resizeRect(d.orig, d.hit, p.x, p.y, ratio);
     }
   }
 

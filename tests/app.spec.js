@@ -33,6 +33,8 @@ test('New Document dialog rejects impossible sizes', async ({ page }) => {
 test('every menu and submenu opens', async ({ page }) => {
   const errors = await openApp(page);
   await patternDoc(page);
+  // Some submenus (Select ▸ Modify) are only available with a selection.
+  await page.keyboard.press('Control+a');
   for (const label of ['File', 'Edit', 'Image', 'Layer', 'Select', 'Filter', 'View', 'Help']) {
     await page.click(`.menu-root:text-is("${label}")`);
     const dropdown = page.locator('.menu-wrap > .menu-dropdown');
