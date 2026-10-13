@@ -2,7 +2,7 @@ import { Layer, PASS_THROUGH } from './core/layer.js';
 import { cloneLayers } from './core/document.js';
 import { applyAdjustmentLayer } from './core/adjustments.js';
 import { hasStyles, rasterizeStyled } from './core/effects.js';
-import { createCanvas } from './core/utils.js';
+import { createCanvas, downloadBlob } from './core/utils.js';
 import {
   openFiles, pickFiles, placeFiles, pasteImage, pasteInternal, copyToSystemClipboard, exportDocument, loadImage,
 } from './io.js';
@@ -11,6 +11,7 @@ import { confirmDialog, promptDialog, shortcutsDialog, aboutDialog } from './ui/
 import { editMask, editingMask, maskValue } from './actions-mask.js';
 import { maskedPixels } from './core/mask.js';
 import { saveProject } from './project.js';
+import { writePSD } from './psd.js';
 
 /**
  * Every menu command, keyed by id. Each action has a label, run(), optional
@@ -138,6 +139,21 @@ export function createActions(app, getMenus) {
     app.emit('document');
     save(name);
   }, { enabled: hasDoc, shortcut: 'Ctrl+Shift+S' });
+  def('file.savePSD', 'Save as Photoshop (.psd)…', async () => {
+    const name = await promptDialog({ title: 'Save as Photoshop document', label: 'File name', value: baseName() });
+    if (!name) return;
+    try {
+      const d = doc();
+      downloadBlob(new Blob([writePSD(d)], { type: 'image/vnd.adobe.photoshop' }), `${name}.psd`);
+      const baked = [];
+      if (d.layers.some((l) => l.text)) baked.push('type is rasterized');
+      if (d.layers.some((l) => hasStyles(l))) baked.push('layer styles are merged into their layers');
+      if (d.layers.some((l) => l.isAdjustment)) baked.push('adjustment layers are saved as merged pixels');
+      app.toast(`Saved ${name}.psd${baked.length ? ` (${baked.join('; ')}). Save as .pfp to keep everything editable` : ''}.`);
+    } catch (err) {
+      app.toast(`Could not save: ${err.message}`);
+    }
+  }, { enabled: hasDoc });
   def('file.export', 'Export As…', () => exportDialog(app),
     { enabled: hasDoc, shortcut: 'Ctrl+Alt+Shift+W' });
   def('file.quickExport', 'Quick Export as PNG', () => {

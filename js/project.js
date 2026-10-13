@@ -17,7 +17,8 @@ export const isProjectFile = (f) => /\.pfp$/i.test(f?.name || '');
 const MAX_SIDE = 16384;
 const BLEND_VALUES = new Set(BLEND_MODES.filter(Boolean).map((m) => m.value));
 
-export function serializeDocument(doc) {
+/** The project as plain data; encode(canvas) gives each image (a PNG data URL by default). */
+export function serializeDocument(doc, encode = (c) => c.toDataURL('image/png')) {
   return {
     format: 'photoforge',
     version: 2,
@@ -40,13 +41,36 @@ export function serializeDocument(doc) {
       opacity: l.opacity,
       blendMode: l.blendMode,
       locked: l.locked,
-      image: l.canvas.toDataURL('image/png'),
+      image: encode(l.canvas),
       text: l.text ? { ...l.text } : null,
       mask: l.mask
-        ? { x: l.mask.ox, y: l.mask.oy, outside: l.mask.outside, enabled: l.mask.enabled, image: l.mask.canvas.toDataURL('image/png') }
+        ? { x: l.mask.ox, y: l.mask.oy, outside: l.mask.outside, enabled: l.mask.enabled, image: encode(l.mask.canvas) }
         : null,
     })),
   };
+}
+
+/** Like serializeDocument, but PNG encoding happens off the main thread (for autosave). */
+export async function serializeDocumentAsync(doc) {
+  const jobs = [];
+  const encode = (canvas) => {
+    // toBlob copies the pixels now and encodes later, so the snapshot stays consistent.
+    jobs.push(new Promise((resolve, reject) => canvas.toBlob((blob) => {
+      if (!blob) return reject(new Error('could not encode an image'));
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    }, 'image/png')));
+    return jobs.length - 1;
+  };
+  const p = serializeDocument(doc, encode);
+  const urls = await Promise.all(jobs);
+  for (const l of p.layers) {
+    l.image = urls[l.image];
+    if (l.mask) l.mask.image = urls[l.mask.image];
+  }
+  return p;
 }
 
 export function saveProject(doc, baseName) {

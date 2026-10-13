@@ -17,6 +17,15 @@ export default [
     },
   },
   {
+    // The service worker is a classic script with worker globals.
+    files: ['sw.js'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'script',
+      globals: { ...globals.serviceworker },
+    },
+  },
+  {
     // Tests run in Node; callbacks passed to page.evaluate run in the app page.
     files: ['tests/**/*.js', '*.config.js'],
     languageOptions: {

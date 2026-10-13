@@ -4,7 +4,7 @@ import { formatShortcut } from '../core/utils.js';
 
 // Items are action ids, '-' separators, or { label, items } submenus.
 export const MENUS = [
-  { label: 'File', items: ['file.new', 'file.open', 'file.place', '-', 'file.save', 'file.saveAs', '-', 'file.export', 'file.quickExport', '-', 'file.close'] },
+  { label: 'File', items: ['file.new', 'file.open', 'file.place', '-', 'file.save', 'file.saveAs', 'file.savePSD', '-', 'file.export', 'file.quickExport', '-', 'file.install', '-', 'file.close'] },
   {
     label: 'Edit',
     items: ['edit.undo', 'edit.redo', '-', 'edit.cut', 'edit.copy', 'edit.copyMerged', 'edit.paste', 'edit.clear', '-',

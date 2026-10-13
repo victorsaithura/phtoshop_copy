@@ -4,6 +4,10 @@ export { expect };
 
 /** Load the app and collect uncaught errors and console errors. */
 export async function openApp(page) {
+  // Playwright switches file-chooser interception on without waiting for the browser,
+  // so a chooser opened right after waitForEvent('filechooser') can slip through
+  // under load. A permanent listener keeps interception on for the whole test.
+  page.on('filechooser', () => {});
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
