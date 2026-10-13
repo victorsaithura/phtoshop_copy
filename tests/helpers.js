@@ -79,9 +79,12 @@ export async function drag(page, from, to, { steps = 8, modifiers = [] } = {}) {
   for (const m of modifiers) await page.keyboard.up(m);
 }
 
-export async function clickDoc(page, x, y, options = {}) {
+/** Click a document point; `modifiers` (e.g. ['Alt']) are held during the click. */
+export async function clickDoc(page, x, y, { modifiers = [], ...options } = {}) {
   const p = await screenPoint(page, x, y);
+  for (const m of modifiers) await page.keyboard.down(m);
   await page.mouse.click(p.x, p.y, options);
+  for (const m of modifiers) await page.keyboard.up(m);
 }
 
 /** RGBA of the active layer at a document point. */

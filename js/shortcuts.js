@@ -52,14 +52,13 @@ export function setupShortcuts(app, toolbar) {
       }
       return;
     }
-    if (e.key === 'Escape') {
-      app.tool?.cancel?.();
-      return;
-    }
-
-    // The active tool gets first refusal (brush size, nudging, opacity digits…).
+    // The active tool gets first refusal (brush size, nudging, Enter/Esc for transforms…).
     if (app.doc && app.tool?.onKeyDown(e)) {
       e.preventDefault();
+      return;
+    }
+    if (e.key === 'Escape') {
+      app.tool?.cancel?.();
       return;
     }
 

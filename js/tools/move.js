@@ -22,7 +22,7 @@ export class MoveTool extends Tool {
         this.app.emit('layers');
       }
     }
-    const layer = this.app.editableLayer('move tool');
+    const layer = this.app.editableLayer('move tool', { allowText: this.doc.selection.isEmpty(), allowMask: this.doc.selection.isEmpty() });
     if (!layer) return;
     this.drag = this._begin(layer, e.alt);
     this.drag.startX = e.x;
@@ -157,7 +157,7 @@ export class MoveTool extends Tool {
     const v = dirs[e.key];
     if (v) {
       if (this.drag) return true;
-      const layer = this.app.editableLayer('move tool');
+      const layer = this.app.editableLayer('move tool', { allowText: this.doc.selection.isEmpty(), allowMask: this.doc.selection.isEmpty() });
       if (!layer) return true;
       const step = e.shiftKey ? 10 : 1;
       this.drag = this._begin(layer, false);

@@ -116,12 +116,40 @@ export class PSDocument {
     for (const layer of this.layers) {
       if (!layer.visible || layer.opacity <= 0) continue;
       const src = (override && override(layer, rect ? r : null)) || layer;
+      // A preview override may bring its own mask (live mask painting).
+      const mask = src !== layer && src.mask !== undefined ? src.mask : layer.activeMask;
       ctx.globalAlpha = layer.opacity;
       ctx.globalCompositeOperation = layer.blendMode;
-      drawRegion(ctx, src.canvas, src.x, src.y, r);
+      if (!mask) {
+        drawRegion(ctx, src.canvas, src.x, src.y, r);
+        continue;
+      }
+      const s = this._scratch(r.w, r.h);
+      const sc = s.getContext('2d');
+      sc.save();
+      sc.setTransform(1, 0, 0, 1, -r.x, -r.y);
+      sc.globalCompositeOperation = 'copy';
+      sc.clearRect(r.x, r.y, r.w, r.h);
+      sc.globalCompositeOperation = 'source-over';
+      drawRegion(sc, src.canvas, src.x, src.y, r);
+      sc.globalCompositeOperation = 'destination-in';
+      sc.beginPath();
+      sc.rect(r.x, r.y, r.w, r.h);
+      sc.clip();
+      drawRegion(sc, mask.canvas, mask.x, mask.y, r);
+      sc.restore();
+      ctx.drawImage(s, 0, 0, r.w, r.h, r.x, r.y, r.w, r.h);
     }
     ctx.restore();
     return c;
+  }
+
+  /** Reusable work canvas at least w × h. */
+  _scratch(w, h) {
+    if (!this.scratch || this.scratch.width < w || this.scratch.height < h) {
+      this.scratch = createCanvas(Math.max(w, this.scratch?.width || 0), Math.max(h, this.scratch?.height || 0));
+    }
+    return this.scratch;
   }
 
   /* ---------- History support ---------- */

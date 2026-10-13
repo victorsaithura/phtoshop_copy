@@ -42,6 +42,9 @@ export class Layer {
     this.opacity = 1;
     this.blendMode = 'source-over';
     this.locked = false;
+    this.text = null; // type layers: settings from core/text.js, re-rendered on edit
+    this.mask = null; // optional Mask (core/mask.js); maskSelected = the mask is being edited
+    this.maskSelected = false;
     this.version = 0; // bumped on every pixel change (used for thumbnails)
   }
 
@@ -63,17 +66,38 @@ export class Layer {
     this.canvas = c;
     this.x = u.x;
     this.y = u.y;
+    if (this.mask) {
+      // Keep the mask where it was in the document, and covering the layer.
+      this.mask.ox += cur.x - u.x;
+      this.mask.oy += cur.y - u.y;
+      this.mask.ensureCovers(this, this.bounds);
+    }
     return true;
+  }
+
+  /** Mask placement in document coordinates for compositing, or null when off. */
+  get activeMask() {
+    const m = this.mask;
+    if (!m || !m.enabled) return null;
+    m.ensureCovers(this, this.bounds);
+    return { canvas: m.canvas, x: this.x + m.ox, y: this.y + m.oy };
   }
 
   /** Snapshot the whole layer, or just `rect` (document coordinates). */
   snapshot(rect) {
-    if (!rect) return { full: true, canvas: cloneCanvas(this.canvas), x: this.x, y: this.y };
+    if (!rect) {
+      return {
+        full: true, canvas: cloneCanvas(this.canvas), x: this.x, y: this.y,
+        text: this.text ? { ...this.text } : null,
+        mask: this.mask ? this.mask.clone() : null,
+      };
+    }
+    const maskRegion = this.mask ? this.mask.snapshot(this, rect) : null;
     const r = rectIntersect(rect, this.bounds);
-    if (!r) return { full: false, rect: null };
+    if (!r) return { full: false, rect: null, maskRegion };
     const c = createCanvas(r.w, r.h);
     c.getContext('2d').drawImage(this.canvas, this.x - r.x, this.y - r.y);
-    return { full: false, rect: r, canvas: c };
+    return { full: false, rect: r, canvas: c, maskRegion };
   }
 
   restore(snap) {
@@ -81,13 +105,19 @@ export class Layer {
       this.canvas = cloneCanvas(snap.canvas);
       this.x = snap.x;
       this.y = snap.y;
-    } else if (snap.rect) {
-      this.ensureCovers(snap.rect);
-      const ctx = this.ctx;
-      const lx = snap.rect.x - this.x;
-      const ly = snap.rect.y - this.y;
-      ctx.clearRect(lx, ly, snap.rect.w, snap.rect.h);
-      ctx.drawImage(snap.canvas, lx, ly);
+      this.text = snap.text ? { ...snap.text } : null;
+      this.mask = snap.mask ? snap.mask.clone() : null;
+      if (!this.mask) this.maskSelected = false;
+    } else {
+      if (snap.rect) {
+        this.ensureCovers(snap.rect);
+        const ctx = this.ctx;
+        const lx = snap.rect.x - this.x;
+        const ly = snap.rect.y - this.y;
+        ctx.clearRect(lx, ly, snap.rect.w, snap.rect.h);
+        ctx.drawImage(snap.canvas, lx, ly);
+      }
+      if (snap.maskRegion && this.mask) this.mask.restoreRegion(this, snap.maskRegion);
     }
     this.touch();
   }
@@ -97,6 +127,8 @@ export class Layer {
     l.visible = this.visible;
     l.opacity = this.opacity;
     l.blendMode = this.blendMode;
+    l.text = this.text ? { ...this.text } : null;
+    l.mask = this.mask ? this.mask.clone() : null;
     return l;
   }
 

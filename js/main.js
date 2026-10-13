@@ -1,11 +1,17 @@
 import { App } from './app.js';
 import { createActions } from './actions.js';
 import { registerImageActions } from './actions-image.js';
+import { registerMaskActions } from './actions-mask.js';
 import { setupShortcuts } from './shortcuts.js';
 import { setupDropAndPaste } from './io.js';
 import { MoveTool } from './tools/move.js';
 import { MarqueeTool } from './tools/marquee.js';
 import { CropTool } from './tools/crop.js';
+import { LassoTool, PolygonLassoTool, MagicWandTool } from './tools/lasso.js';
+import { RetouchTool } from './tools/retouch.js';
+import { TextTool } from './tools/text.js';
+import { ShapeTool } from './tools/shape.js';
+import { FreeTransformTool } from './tools/free-transform.js';
 import { BrushTool } from './tools/brush.js';
 import { PaintBucketTool } from './tools/bucket.js';
 import { GradientTool } from './tools/gradient.js';
@@ -30,6 +36,9 @@ for (const tool of [
   new MoveTool(app),
   new MarqueeTool(app, 'rect'),
   new MarqueeTool(app, 'ellipse'),
+  new LassoTool(app),
+  new PolygonLassoTool(app),
+  new MagicWandTool(app),
   new CropTool(app),
   new EyedropperTool(app),
   new BrushTool(app, 'brush'),
@@ -37,6 +46,10 @@ for (const tool of [
   new BrushTool(app, 'eraser'),
   new GradientTool(app),
   new PaintBucketTool(app),
+  ...['spot', 'heal', 'clone', 'blur', 'sharpen', 'smudge', 'dodge', 'burn', 'sponge'].map((k) => new RetouchTool(app, k)),
+  new TextTool(app),
+  ...['rect', 'ellipse', 'polygon', 'line'].map((k) => new ShapeTool(app, k)),
+  new FreeTransformTool(app),
   new HandTool(app),
   new ZoomTool(app),
 ]) {
@@ -45,6 +58,7 @@ for (const tool of [
 
 app.actions = createActions(app, () => MENUS);
 registerImageActions(app, app.actions);
+registerMaskActions(app, app.actions);
 
 new MenuBar(app, $('#menubar'));
 new OptionsBar(app, $('#optionsbar'));

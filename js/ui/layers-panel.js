@@ -11,7 +11,8 @@ export class LayersPanel {
   constructor(app) {
     this.app = app;
     this.thumbs = new Map(); // layer id -> canvas
-    this.drawn = new Map(); // layer id -> layer.version last drawn
+    this.maskThumbs = new Map(); // layer id -> mask thumbnail canvas
+    this.drawn = new Map(); // thumbnail key -> layer.version last drawn
     this.dragId = null;
 
     this.blend = selectInput({
@@ -29,6 +30,10 @@ export class LayersPanel {
     this.list = h('div', { class: 'layers-list', role: 'listbox', 'aria-label': 'Layers' });
     const footer = h('div', { class: 'layers-footer' },
       iconButton('layer-new', 'Create a new layer', () => app.runAction('layer.new')),
+      iconButton('mask', 'Add a layer mask (Alt-click to start hidden)', (e) => {
+        const sel = app.doc && !app.doc.selection.isEmpty();
+        app.runAction(e.altKey ? (sel ? 'mask.hideSelection' : 'mask.hideAll') : 'mask.add');
+      }),
       iconButton('duplicate', 'Duplicate layer', () => app.runAction('layer.duplicate')),
       iconButton('merge', 'Merge down (Ctrl+E)', () => app.runAction('layer.mergeDown')),
       iconButton('trash', 'Delete layer', () => app.runAction('layer.delete')));
@@ -102,6 +107,7 @@ export class LayersPanel {
   render() {
     clear(this.list);
     this.thumbs.clear();
+    this.maskThumbs.clear();
     const doc = this.app.doc;
     this._syncControls();
     if (!doc) return;
@@ -123,13 +129,39 @@ export class LayersPanel {
     }, icon('eye', 15));
     const thumb = h('canvas', { class: 'layer-thumb', width: THUMB_W, height: THUMB_H, title: 'Ctrl-click to select the layer’s pixels' });
     thumb.addEventListener('click', (e) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      e.stopPropagation();
-      doc.setActive(layer);
-      app.runAction('select.layerPixels');
-      app.emit('layers');
+      if (e.ctrlKey || e.metaKey) {
+        e.stopPropagation();
+        doc.setActive(layer);
+        app.runAction('select.layerPixels');
+        app.emit('layers');
+      } else if (layer.maskSelected) {
+        // Back to editing the layer's pixels.
+        e.stopPropagation();
+        layer.maskSelected = false;
+        doc.setActive(layer);
+        app.emit('layers');
+      }
     });
     this.thumbs.set(layer.id, thumb);
+    let maskThumb = null;
+    if (layer.mask) {
+      maskThumb = h('canvas', {
+        class: 'layer-thumb mask-thumb', width: THUMB_W, height: THUMB_H,
+        title: 'Layer mask — click to edit it, Shift-click to disable it',
+      });
+      maskThumb.addEventListener('click', (e) => {
+        e.stopPropagation();
+        doc.setActive(layer);
+        if (e.shiftKey) {
+          app.runAction('mask.toggle');
+          return;
+        }
+        layer.maskSelected = true;
+        app.emit('layers');
+      });
+      this.maskThumbs.set(layer.id, maskThumb);
+    }
+    if (active && layer.mask) (layer.maskSelected ? maskThumb : thumb).classList.add('target');
     const name = h('div', { class: 'layer-name', title: 'Double-click to rename' }, layer.name);
     name.addEventListener('dblclick', (e) => {
       e.stopPropagation();
@@ -137,7 +169,16 @@ export class LayersPanel {
     });
     const row = h('div', {
       class: 'layer-row' + (active ? ' active' : ''), draggable: 'true', role: 'option', 'aria-selected': String(active),
-    }, eye, thumb, name, layer.locked ? h('span', { class: 'layer-lock', title: 'Locked' }, icon('lock', 13)) : null);
+    }, eye, thumb, maskThumb, name,
+    layer.text ? h('span', { class: 'layer-kind', title: 'Type layer — double-click the thumbnail to edit' }, 'T') : null,
+    layer.locked ? h('span', { class: 'layer-lock', title: 'Locked' }, icon('lock', 13)) : null);
+    thumb.addEventListener('dblclick', (e) => {
+      if (!layer.text) return;
+      e.stopPropagation();
+      doc.setActive(layer);
+      app.setTool('text');
+      app.tools.get('text').edit(layer);
+    });
 
     row.addEventListener('click', () => {
       if (doc.activeId === layer.id) return;
@@ -208,31 +249,61 @@ export class LayersPanel {
   updateThumbs(force = false) {
     const doc = this.app.doc;
     if (!doc) return;
+    const s = Math.min(THUMB_W / doc.width, THUMB_H / doc.height);
+    const w = doc.width * s;
+    const hh = doc.height * s;
+    const ox = (THUMB_W - w) / 2;
+    const oy = (THUMB_H - hh) / 2;
     for (const layer of doc.layers) {
       const canvas = this.thumbs.get(layer.id);
-      if (!canvas) continue;
-      if (!force && this.drawn.get(layer.id) === layer.version) continue;
-      this.drawn.set(layer.id, layer.version);
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, THUMB_W, THUMB_H);
-      const s = Math.min(THUMB_W / doc.width, THUMB_H / doc.height);
-      const w = doc.width * s;
-      const hh = doc.height * s;
-      const ox = (THUMB_W - w) / 2;
-      const oy = (THUMB_H - hh) / 2;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(ox, oy, w, hh);
-      ctx.clip();
-      for (let y = 0; y < hh; y += 8) {
-        for (let x = 0; x < w; x += 8) {
-          ctx.fillStyle = ((x + y) / 8) % 2 ? '#cccccc' : '#ffffff';
-          ctx.fillRect(ox + x, oy + y, 8, 8);
+      if (canvas && (force || this.drawn.get(layer.id) !== layer.version)) {
+        this.drawn.set(layer.id, layer.version);
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, THUMB_W, THUMB_H);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(ox, oy, w, hh);
+        ctx.clip();
+        for (let y = 0; y < hh; y += 8) {
+          for (let x = 0; x < w; x += 8) {
+            ctx.fillStyle = ((x + y) / 8) % 2 ? '#cccccc' : '#ffffff';
+            ctx.fillRect(ox + x, oy + y, 8, 8);
+          }
+        }
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(layer.canvas, ox + layer.x * s, oy + layer.y * s, layer.width * s, layer.height * s);
+        ctx.restore();
+      }
+      const mc = this.maskThumbs.get(layer.id);
+      const key = `m${layer.id}`;
+      if (mc && layer.mask && (force || this.drawn.get(key) !== layer.version)) {
+        this.drawn.set(key, layer.version);
+        const m = layer.mask;
+        const b = m.bounds(layer);
+        const ctx = mc.getContext('2d');
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, THUMB_W, THUMB_H);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(ox, oy, w, hh);
+        ctx.clip();
+        ctx.fillStyle = `rgba(255,255,255,${m.outside / 255})`;
+        ctx.fillRect(ox, oy, w, hh);
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s);
+        ctx.drawImage(m.canvas, ox + b.x * s, oy + b.y * s, b.w * s, b.h * s);
+        ctx.restore();
+        if (!m.enabled) {
+          ctx.strokeStyle = '#e34850';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(4, 4);
+          ctx.lineTo(THUMB_W - 4, THUMB_H - 4);
+          ctx.moveTo(THUMB_W - 4, 4);
+          ctx.lineTo(4, THUMB_H - 4);
+          ctx.stroke();
         }
       }
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(layer.canvas, ox + layer.x * s, oy + layer.y * s, layer.width * s, layer.height * s);
-      ctx.restore();
     }
   }
 }

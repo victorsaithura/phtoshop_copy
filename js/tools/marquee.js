@@ -1,11 +1,19 @@
 import { Tool, strokeOutline } from './tool.js';
 
-const MODES = [
+export const SELECTION_MODES = [
   { value: 'new', icon: 'sel-new', title: 'New selection' },
   { value: 'add', icon: 'sel-add', title: 'Add to selection (Shift)' },
   { value: 'subtract', icon: 'sel-subtract', title: 'Subtract from selection (Alt)' },
   { value: 'intersect', icon: 'sel-intersect', title: 'Intersect with selection (Shift+Alt)' },
 ];
+
+/** Mode from the options bar, overridden by Shift (add), Alt (subtract) or both (intersect). */
+export function selectionMode(options, e) {
+  if (e.shift && e.alt) return 'intersect';
+  if (e.shift) return 'add';
+  if (e.alt) return 'subtract';
+  return options.mode;
+}
 
 /**
  * Rectangular / Elliptical Marquee.
@@ -30,10 +38,7 @@ export class MarqueeTool extends Tool {
 
   onPointerDown(e) {
     const sel = this.doc.selection;
-    let mode = this.options.mode;
-    if (e.shift && e.alt) mode = 'intersect';
-    else if (e.shift) mode = 'add';
-    else if (e.alt) mode = 'subtract';
+    const mode = selectionMode(this.options, e);
 
     if (mode === 'new' && !sel.isEmpty() && sel.contains(e.x, e.y)) {
       this.moving = { x: e.x, y: e.y, dx: 0, dy: 0 };
@@ -154,7 +159,7 @@ export class MarqueeTool extends Tool {
   }
 
   buildOptions(bar) {
-    bar.segmented({ value: this.options.mode, options: MODES, onChange: (v) => this.setOption('mode', v) });
+    bar.segmented({ value: this.options.mode, options: SELECTION_MODES, onChange: (v) => this.setOption('mode', v) });
     bar.sep();
     bar.number({ label: 'Feather', min: 0, max: 250, value: this.options.feather, unit: 'px',
       onInput: (v) => this.setOption('feather', v) });

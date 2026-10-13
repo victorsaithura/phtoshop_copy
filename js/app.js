@@ -193,10 +193,22 @@ export class App extends Emitter {
     this.canvas.style.cursor = cursor;
   }
 
-  /** The active layer if it can be painted on; otherwise explains why not. */
-  editableLayer(toolName = 'tool') {
+  /**
+   * The active layer if it can be edited; otherwise explains why not.
+   * Type layers must be rasterized before their pixels can change.
+   */
+  editableLayer(toolName = 'tool', { allowText = false, allowMask = false } = {}) {
     const layer = this.doc?.activeLayer;
     if (!layer) return null;
+    const onMask = !!(layer.mask && layer.maskSelected);
+    if (onMask && !allowMask) {
+      this.toast(`Could not use the ${toolName} on a layer mask. Click the layer thumbnail to edit its pixels.`);
+      return null;
+    }
+    if (layer.text && !allowText && !onMask) {
+      this.toast(`Could not use the ${toolName} because the type layer must be rasterized first (Layer ▸ Rasterize Type).`);
+      return null;
+    }
     if (!layer.visible) {
       this.toast(`Could not use the ${toolName} because the target layer is hidden.`);
       return null;
@@ -376,6 +388,9 @@ export class App extends Emitter {
       this.renderer.request(false);
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    // The canvas never takes focus, so stop mousedown from moving focus away
+    // (keeps the Type tool's editor focused when it opens on click).
+    canvas.addEventListener('mousedown', (e) => e.preventDefault());
 
     canvas.addEventListener('wheel', (e) => {
       if (!this.doc) return;

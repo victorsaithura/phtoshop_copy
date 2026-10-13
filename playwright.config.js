@@ -32,5 +32,7 @@ export default defineConfig({
     command: `python3 -m http.server ${PORT} --bind 127.0.0.1`,
     url: `http://127.0.0.1:${PORT}/index.html`,
     reuseExistingServer: !CI,
+    stdout: 'ignore',
+    stderr: 'ignore',
   },
 });

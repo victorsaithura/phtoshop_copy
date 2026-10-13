@@ -1,5 +1,6 @@
 import { createCanvas, rectIntersect } from './utils.js';
 import { PSDocument } from './document.js';
+import { renderText } from './text.js';
 
 /*
  * Whole-document operations (Image menu) and layer transforms (Edit ▸ Transform).
@@ -9,23 +10,38 @@ import { PSDocument } from './document.js';
 
 const docSpec = (doc) => ({ structure: true, selection: true, layers: doc.layers.slice() });
 
-/** Redraw a layer through a document-space matrix, growing/shrinking its canvas to fit. */
-function transformLayerCanvas(layer, m, smooth) {
-  const { x, y, width: w, height: h } = layer;
+/** Draw `canvas` (placed at x, y) through a document-space matrix; returns the new canvas and position. */
+export function transformCanvasAt(canvas, x, y, m, smooth) {
+  const w = canvas.width;
+  const h = canvas.height;
   const pts = [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(([px, py]) => m.transformPoint(new DOMPoint(px, py)));
   const minX = Math.floor(Math.min(...pts.map((p) => p.x)) + 1e-6);
   const minY = Math.floor(Math.min(...pts.map((p) => p.y)) + 1e-6);
   const maxX = Math.ceil(Math.max(...pts.map((p) => p.x)) - 1e-6);
   const maxY = Math.ceil(Math.max(...pts.map((p) => p.y)) - 1e-6);
-  const c = createCanvas(maxX - minX, maxY - minY);
+  const c = createCanvas(maxX - minX, maxY - minY, { readFrequently: false });
   const ctx = c.getContext('2d');
   ctx.imageSmoothingEnabled = smooth;
   ctx.imageSmoothingQuality = 'high';
   ctx.setTransform(new DOMMatrix().translate(-minX, -minY).multiply(m));
-  ctx.drawImage(layer.canvas, x, y);
-  layer.canvas = c;
-  layer.x = minX;
-  layer.y = minY;
+  ctx.drawImage(canvas, x, y);
+  return { canvas: c, x: minX, y: minY };
+}
+
+/** Redraw a layer (and its mask) through a document-space matrix. */
+export function transformLayerCanvas(layer, m, smooth) {
+  const mask = layer.mask;
+  const maskAt = mask ? transformCanvasAt(mask.canvas, layer.x + mask.ox, layer.y + mask.oy, m, smooth) : null;
+  const t = transformCanvasAt(layer.canvas, layer.x, layer.y, m, smooth);
+  layer.canvas = t.canvas;
+  layer.x = t.x;
+  layer.y = t.y;
+  if (maskAt) {
+    mask.canvas = maskAt.canvas;
+    mask.ox = maskAt.x - layer.x;
+    mask.oy = maskAt.y - layer.y;
+    mask.ensureCovers(layer, layer.bounds);
+  }
 }
 
 /** Resample with repeated halving for smoother large reductions. */
@@ -55,13 +71,32 @@ export function resizeImage(app, w, h, method = 'smooth') {
   const sy = h / doc.height;
   app.transact('Image Size', docSpec(doc), () => {
     for (const l of doc.layers) {
+      if (l.text) {
+        // Type stays editable: scale the font instead of the pixels.
+        l.text = { ...l.text, size: Math.max(1, Math.round(l.text.size * Math.sqrt(sx * sy) * 10) / 10) };
+        renderText(l, false);
+        l.x = Math.round(l.x * sx);
+        l.y = Math.round(l.y * sy);
+        continue;
+      }
       const x0 = Math.round(l.x * sx);
       const y0 = Math.round(l.y * sy);
       const nw = Math.max(1, Math.round((l.x + l.width) * sx) - x0);
       const nh = Math.max(1, Math.round((l.y + l.height) * sy) - y0);
+      if (l.mask) {
+        const m = l.mask;
+        const mx = Math.round((l.x + m.ox) * sx);
+        const my = Math.round((l.y + m.oy) * sy);
+        const mw = Math.max(1, Math.round((l.x + m.ox + m.width) * sx) - mx);
+        const mh = Math.max(1, Math.round((l.y + m.oy + m.height) * sy) - my);
+        m.canvas = resampleCanvas(m.canvas, mw, mh, method);
+        m.ox = mx - x0;
+        m.oy = my - y0;
+      }
       l.canvas = resampleCanvas(l.canvas, nw, nh, method);
       l.x = x0;
       l.y = y0;
+      l.mask?.ensureCovers(l, l.bounds);
     }
     doc.width = w;
     doc.height = h;
@@ -121,11 +156,20 @@ export function cropDocument(app, rect, deleteCropped = true) {
       l.y -= r.y;
       if (!deleteCropped) continue;
       const keep = rectIntersect(l.bounds, { x: 0, y: 0, w: r.w, h: r.h });
+      if (keep && keep.w === l.width && keep.h === l.height) continue;
+      l.text = null;
       const c = createCanvas(keep ? keep.w : 1, keep ? keep.h : 1);
       if (keep) c.getContext('2d').drawImage(l.canvas, l.x - keep.x, l.y - keep.y);
+      const oldX = l.x;
+      const oldY = l.y;
       l.canvas = c;
       l.x = keep ? keep.x : 0;
       l.y = keep ? keep.y : 0;
+      if (l.mask) {
+        // The mask keeps its place in the document.
+        l.mask.ox += oldX - l.x;
+        l.mask.oy += oldY - l.y;
+      }
     }
     doc.width = r.w;
     doc.height = r.h;
@@ -157,7 +201,10 @@ export function rotateDocument(app, deg) {
   const exact = turn % 90 === 0;
   const label = exact ? (turn === 180 ? 'Rotate 180°' : turn === 90 ? 'Rotate 90° Clockwise' : 'Rotate 90° Counter Clockwise') : 'Rotate Canvas';
   app.transact(label, docSpec(doc), () => {
-    for (const l of doc.layers) transformLayerCanvas(l, m, !exact);
+    for (const l of doc.layers) {
+      l.text = null;
+      transformLayerCanvas(l, m, !exact);
+    }
     doc.width = nw;
     doc.height = nh;
     doc.selection.reset(nw, nh);
@@ -170,7 +217,10 @@ export function flipDocument(app, horizontal) {
   const doc = app.doc;
   const m = horizontal ? new DOMMatrix([-1, 0, 0, 1, doc.width, 0]) : new DOMMatrix([1, 0, 0, -1, 0, doc.height]);
   app.transact(horizontal ? 'Flip Canvas Horizontal' : 'Flip Canvas Vertical', docSpec(doc), () => {
-    for (const l of doc.layers) transformLayerCanvas(l, m, false);
+    for (const l of doc.layers) {
+      l.text = null;
+      transformLayerCanvas(l, m, false);
+    }
     doc.selection.reset(doc.width, doc.height);
   });
 }

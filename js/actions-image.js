@@ -2,6 +2,7 @@ import { ADJUSTMENTS } from './core/adjustments.js';
 import { FILTERS } from './core/filters.js';
 import { rotateDocument, flipDocument, cropDocument, transformLayer } from './core/transform.js';
 import { runPixelCommand } from './ui/adjust-dialog.js';
+import { editMask, editingMask } from './actions-mask.js';
 import { imageSizeDialog, canvasSizeDialog, rotateDialog, duplicateDialog } from './ui/image-dialogs.js';
 
 const ADJUSTMENT_SHORTCUTS = {
@@ -28,8 +29,16 @@ export function registerImageActions(app, A) {
 
   for (const [key, adj] of Object.entries(ADJUSTMENTS)) {
     const id = key.startsWith('auto') ? `image.${key}` : `adjust.${key}`;
-    def(id, adj.title + ellipsis(adj), () => runPixelCommand(app, adj, { id }),
-      { enabled: hasLayer, shortcut: ADJUSTMENT_SHORTCUTS[key] });
+    const run = key === 'invert'
+      ? () => {
+        // Ctrl+I on a selected mask inverts the mask.
+        if (editingMask(app)) {
+          const doc = app.doc;
+          editMask(app, 'Invert', doc.selection.isEmpty() ? doc.bounds : doc.selection.bounds, (v) => 255 - v);
+        } else runPixelCommand(app, adj, { id });
+      }
+      : () => runPixelCommand(app, adj, { id });
+    def(id, adj.title + ellipsis(adj), run, { enabled: hasLayer, shortcut: ADJUSTMENT_SHORTCUTS[key] });
   }
 
   for (const [key, f] of Object.entries(FILTERS)) {

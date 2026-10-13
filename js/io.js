@@ -1,6 +1,7 @@
 import { createCanvas, downloadBlob } from './core/utils.js';
 import { PSDocument } from './core/document.js';
 import { Layer } from './core/layer.js';
+import { isProjectFile, parseProject } from './project.js';
 
 export const MAX_SIDE = 16384;
 export const MAX_PIXELS = 100_000_000;
@@ -47,7 +48,7 @@ export async function loadImage(file) {
   return c;
 }
 
-export function pickFiles({ multiple = false, accept = 'image/*,.svg' } = {}) {
+export function pickFiles({ multiple = false, accept = 'image/*,.svg,.pfp' } = {}) {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -61,11 +62,19 @@ export function pickFiles({ multiple = false, accept = 'image/*,.svg' } = {}) {
 
 const stripExt = (name) => (name || '').replace(/\.[^.]+$/, '');
 
-/** Open each image as its own document. */
+/** Open each image or PhotoForge project as its own document. */
 export async function openFiles(app, files) {
-  const images = files.filter(isImageFile);
-  if (files.length && !images.length) {
-    app.toast('That file type is not supported. Open a PNG, JPEG, WebP, GIF, BMP or SVG image.');
+  const projects = files.filter(isProjectFile);
+  const images = files.filter((f) => !isProjectFile(f) && isImageFile(f));
+  if (files.length && !images.length && !projects.length) {
+    app.toast('That file type is not supported. Open a PNG, JPEG, WebP, GIF, BMP or SVG image, or a .pfp project.');
+  }
+  for (const file of projects) {
+    try {
+      app.addDocument(await parseProject(await file.text()), 'Open');
+    } catch (err) {
+      app.toast(`Could not open ${file.name}: ${err.message}.`);
+    }
   }
   for (const file of images) {
     try {
@@ -204,8 +213,13 @@ export function setupDropAndPaste(app) {
     depth = 0;
     overlay.hidden = true;
     const files = [...e.dataTransfer.files];
-    if (app.doc && !e.shiftKey) placeFiles(app, files);
-    else openFiles(app, files);
+    // Projects always open as documents; images become layers unless Shift is held.
+    const projects = files.filter(isProjectFile);
+    const images = files.filter((f) => !isProjectFile(f));
+    if (projects.length) openFiles(app, projects);
+    if (!images.length) return;
+    if (app.doc && !e.shiftKey) placeFiles(app, images);
+    else openFiles(app, images);
   });
 
   window.addEventListener('paste', (e) => {

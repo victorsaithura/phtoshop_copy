@@ -1,12 +1,13 @@
 import { Tool, strokeOutline } from './tool.js';
-import { clamp, createCanvas, drawRegion, hexToRgb, rectIntersect, rectUnion } from '../core/utils.js';
+import { clamp, cloneCanvas, createCanvas, drawRegion, hexToRgb, rectIntersect, rectUnion } from '../core/utils.js';
+import { maskValue } from '../core/mask.js';
 
 /* ---------- Brush tips ---------- */
 
 const tipCache = new Map();
 
 /** A round tip bitmap; soft edges use a cosine falloff controlled by hardness. */
-function getTip(diameter, hardness, color, aliased) {
+export function getTip(diameter, hardness, color, aliased) {
   const size = aliased ? Math.max(1, Math.round(diameter)) : Math.max(1, Math.ceil(diameter));
   const key = `${size}|${aliased ? 'a' : hardness.toFixed(3)}|${color}`;
   const cached = tipCache.get(key);
@@ -194,6 +195,67 @@ export class Stroke {
   }
 }
 
+/**
+ * A stroke on a layer mask: moves mask values toward `value` (0 hide … 255
+ * reveal) by the stroke's coverage, opacity and the selection.
+ */
+export class MaskStroke extends Stroke {
+  constructor(app, layer, o, value) {
+    super(app, layer, { ...o, color: '#ffffff', erase: false });
+    this.value = value;
+    layer.mask.ensureCovers(layer, this.doc.bounds);
+    this.orig = layer.mask.read(layer, this.doc.bounds);
+    this.work = cloneCanvas(layer.mask.canvas);
+  }
+
+  _apply(rect) {
+    const doc = this.doc;
+    const r = rectIntersect(rect, doc.bounds);
+    if (!r) return;
+    const cov = this.ctx.getImageData(r.x, r.y, r.w, r.h).data;
+    const sel = doc.selection.alpha;
+    const W = doc.width;
+    const k = this.o.opacity;
+    const vals = new Uint8Array(r.w * r.h);
+    for (let y = 0; y < r.h; y++) {
+      for (let x = 0; x < r.w; x++) {
+        const i = y * r.w + x;
+        const di = (r.y + y) * W + r.x + x;
+        let a = (cov[i * 4 + 3] / 255) * k;
+        if (sel) a *= sel[di] / 255;
+        const old = this.orig[di];
+        vals[i] = Math.round(old + (this.value - old) * a);
+      }
+    }
+    this.layer.mask.write(this.layer, r, vals, this.work);
+  }
+
+  preview(rect) {
+    this._apply(rect || this.doc.bounds);
+    const { layer } = this;
+    const m = layer.mask;
+    return {
+      canvas: layer.canvas, x: layer.x, y: layer.y,
+      mask: m.enabled ? { canvas: this.work, x: layer.x + m.ox, y: layer.y + m.oy } : null,
+    };
+  }
+
+  commit(label) {
+    const rect = rectIntersect(this.bounds, this.doc.bounds);
+    if (!rect) return;
+    this._apply(rect);
+    const { layer, work } = this;
+    this.app.transact(label, { layers: [{ layer, rect }] }, () => {
+      const b = layer.mask.bounds(layer);
+      const lx = rect.x - b.x;
+      const ly = rect.y - b.y;
+      const c = layer.mask.canvas.getContext('2d');
+      c.clearRect(lx, ly, rect.w, rect.h);
+      c.drawImage(work, lx, ly, rect.w, rect.h, lx, ly, rect.w, rect.h);
+    });
+  }
+}
+
 /* ---------- Brush, Pencil and Eraser tools ---------- */
 
 const KINDS = {
@@ -211,6 +273,47 @@ export function stepBrushSize(size, dir) {
   return clamp(next, 1, 1000);
 }
 
+/** Round brush outline (and a crosshair when small) at the pointer. */
+export function brushCursor(ctx, view, hover, size) {
+  if (!hover) return;
+  const d = size * view.zoom;
+  const { sx, sy } = hover;
+  if (d >= 6) strokeOutline(ctx, (c) => c.arc(sx, sy, d / 2, 0, Math.PI * 2));
+  if (d < 14) {
+    strokeOutline(ctx, (c) => {
+      c.moveTo(sx - 5, sy);
+      c.lineTo(sx + 5, sy);
+      c.moveTo(sx, sy - 5);
+      c.lineTo(sx, sy + 5);
+    });
+  }
+}
+
+/**
+ * Photoshop brush keys: [ ] size, Shift+[ ] hardness, digits set `amountKey`
+ * (opacity, exposure, strength…) in tenths. Returns true when handled.
+ */
+export function brushKeys(tool, e, { hardness = true, amountKey = 'opacity' } = {}) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
+    const dir = e.code === 'BracketRight' ? 1 : -1;
+    if (e.shiftKey) {
+      if (hardness && 'hardness' in tool.options) {
+        tool.setOption('hardness', clamp(Math.round(tool.options.hardness * 4 + dir) / 4, 0, 1), true);
+      }
+    } else {
+      tool.setOption('size', stepBrushSize(tool.options.size, dir), true);
+    }
+    return true;
+  }
+  if (amountKey && amountKey in tool.options && /^Digit\d$/.test(e.code) && !e.shiftKey) {
+    const n = Number(e.code.slice(5));
+    tool.setOption(amountKey, n === 0 ? 1 : n / 10, true);
+    return true;
+  }
+  return false;
+}
+
 export class BrushTool extends Tool {
   constructor(app, kind = 'brush') {
     const meta = KINDS[kind];
@@ -226,11 +329,11 @@ export class BrushTool extends Tool {
   get historyLabel() { return this.name.replace(' Tool', ''); }
 
   onPointerDown(e) {
-    const layer = this.app.editableLayer(this.name.toLowerCase());
+    const layer = this.app.editableLayer(this.name.toLowerCase(), { allowMask: true });
     if (!layer) return;
     const o = this.options;
     const pencil = this.kind === 'pencil';
-    this.stroke = new Stroke(this.app, layer, {
+    const settings = {
       size: o.size,
       hardness: pencil ? 1 : o.hardness,
       flow: pencil ? 1 : o.flow,
@@ -240,7 +343,14 @@ export class BrushTool extends Tool {
       erase: this.kind === 'eraser',
       aliased: pencil,
       pressureSize: o.pressure && e.pen,
-    });
+    };
+    if (layer.mask && layer.maskSelected) {
+      // On a mask, colours become grey levels; the eraser paints the background colour.
+      const color = this.kind === 'eraser' ? this.app.colors.bg : this.app.colors.fg;
+      this.stroke = new MaskStroke(this.app, layer, settings, maskValue(color));
+    } else {
+      this.stroke = new Stroke(this.app, layer, settings);
+    }
     // Shift-click draws a straight line from the end of the previous stroke.
     if (e.shift && this.lastPoint && this.lastPoint.layerId === layer.id) {
       this.stroke.start(this.lastPoint.x, this.lastPoint.y, e.pressure);
@@ -278,40 +388,11 @@ export class BrushTool extends Tool {
   }
 
   drawOverlay(ctx, view) {
-    const h = this.app.hover;
-    if (!h) return;
-    const d = this.options.size * view.zoom;
-    const { sx, sy } = h;
-    if (d >= 6) strokeOutline(ctx, (c) => c.arc(sx, sy, d / 2, 0, Math.PI * 2));
-    if (d < 14) {
-      strokeOutline(ctx, (c) => {
-        c.moveTo(sx - 5, sy);
-        c.lineTo(sx + 5, sy);
-        c.moveTo(sx, sy - 5);
-        c.lineTo(sx, sy + 5);
-      });
-    }
+    brushCursor(ctx, view, this.app.hover, this.options.size);
   }
 
   onKeyDown(e) {
-    if (e.ctrlKey || e.metaKey || e.altKey) return false;
-    if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
-      const dir = e.code === 'BracketRight' ? 1 : -1;
-      if (e.shiftKey) {
-        if (this.kind !== 'pencil') {
-          this.setOption('hardness', clamp(Math.round(this.options.hardness * 4 + dir) / 4, 0, 1), true);
-        }
-      } else {
-        this.setOption('size', stepBrushSize(this.options.size, dir), true);
-      }
-      return true;
-    }
-    if (/^Digit\d$/.test(e.code) && !e.shiftKey) {
-      const n = Number(e.code.slice(5));
-      this.setOption('opacity', n === 0 ? 1 : n / 10, true);
-      return true;
-    }
-    return false;
+    return brushKeys(this, e, { hardness: this.kind !== 'pencil' });
   }
 
   buildOptions(bar) {

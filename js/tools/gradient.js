@@ -1,5 +1,6 @@
 import { Tool, strokeOutline } from './tool.js';
-import { createCanvas, rgbaString } from '../core/utils.js';
+import { createCanvas, rectIntersect, rgbaString } from '../core/utils.js';
+import { luma } from '../core/pixels.js';
 
 const TYPES = [
   { value: 'linear', icon: 'grad-linear', title: 'Linear gradient' },
@@ -25,7 +26,7 @@ export class GradientTool extends Tool {
   }
 
   onPointerDown(e) {
-    const layer = this.app.editableLayer('gradient tool');
+    const layer = this.app.editableLayer('gradient tool', { allowMask: true });
     if (!layer) return;
     this.drag = { layer, x0: e.x, y0: e.y, x1: e.x, y1: e.y };
   }
@@ -106,6 +107,10 @@ export class GradientTool extends Tool {
       gctx.drawImage(sel.mask, 0, 0);
     }
     const { layer } = d;
+    if (layer.mask && layer.maskSelected) {
+      this._maskGradient(layer, g, rect);
+      return;
+    }
     layer.ensureCovers(rect);
     this.app.transact('Gradient', { layers: [{ layer, rect }] }, () => {
       const c = layer.ctx;
@@ -113,6 +118,28 @@ export class GradientTool extends Tool {
       c.globalAlpha = this.options.opacity;
       c.drawImage(g, rect.x - layer.x, rect.y - layer.y);
       c.restore();
+    });
+  }
+
+  /** Gradient on a layer mask: grey levels of the gradient become mask values. */
+  _maskGradient(layer, g, rect) {
+    const r = rectIntersect(rect, this.doc.bounds);
+    if (!r) return;
+    const gd = g.getContext('2d').getImageData(0, 0, rect.w, rect.h).data;
+    const k = this.options.opacity;
+    this.app.transact('Gradient', { layers: [{ layer, rect: r }] }, () => {
+      const vals = layer.mask.read(layer, r);
+      for (let y = 0; y < r.h; y++) {
+        for (let x = 0; x < r.w; x++) {
+          const gi = ((r.y - rect.y + y) * rect.w + (r.x - rect.x + x)) * 4;
+          const a = (gd[gi + 3] / 255) * k;
+          if (!a) continue;
+          const i = y * r.w + x;
+          const v = luma(gd[gi], gd[gi + 1], gd[gi + 2]);
+          vals[i] = Math.round(vals[i] + (v - vals[i]) * a);
+        }
+      }
+      layer.mask.write(layer, r, vals);
     });
   }
 
