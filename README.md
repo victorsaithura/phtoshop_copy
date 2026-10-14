@@ -76,10 +76,17 @@ After the first visit over `https://` (or `localhost`), PhotoForge keeps a copy 
 
 **Filter menu**
 - Blur: Gaussian, Motion, Box · Sharpen: Sharpen, Unsharp Mask · Noise: Add Noise · Pixelate: Mosaic
+- Distort: Pinch, Polar Coordinates, Ripple, Spherize (normal, horizontal or vertical), Twirl, Wave (sine, triangle or square) and ZigZag; they centre on the selection, or on the layer when nothing is selected
 - Stylize: Emboss, Find Edges · Render: Vignette · Other: High Pass
+- Liquify (Ctrl+Shift+X): see Retouching below
 - Last Filter (Ctrl+Alt+F) repeats the previous filter with the same settings
 
 Adjustments and filters apply to the active layer, limited to the selection when there is one (feathered selections blend smoothly). Dialogs sit beside the canvas, can be dragged by their title, and show a live preview you can toggle.
+
+**Retouching**
+- **Liquify** (Filter ▸ Liquify, Ctrl+Shift+X) opens a workspace with its own zoom (scroll, Ctrl+±, Fit) and pan (Space or the Hand). Brushes: Forward Warp (W) pushes pixels along the stroke, Reconstruct (R) paints the original back, Smooth (E), Twirl Clockwise (C, Alt for counter-clockwise), Pucker (S), Bloat (B) and Push Left (O). Freeze Mask (F) protects areas and Thaw Mask (D) releases them. Size ([ and ]), Pressure, Density and Rate; Show Mesh, Restore All, and Ctrl+Z / Ctrl+Shift+Z inside the workspace
+- **Content-Aware Fill** (Edit ▸ Content-Aware Fill, or Content-Aware in Edit ▸ Fill): select something to remove and it is replaced with texture taken from around the selection. It runs in the background with a progress bar you can cancel; feathered selections blend in
+- **Transforms:** Edit ▸ Transform ▸ Skew, Distort, Perspective and Warp, or switch mode in the options bar while transforming. In Free Transform, Ctrl-drag a corner to distort, Ctrl+Shift-drag a side to skew and Ctrl+Alt+Shift-drag a corner for perspective; Alt scales from the centre. Warp bends the layer with a 4×4 grid: drag its corners, their handles or anywhere on the mesh, or choose a preset (Arc, Arch, Bulge, Flag, Wave, Rise, Squeeze, Inflate) with a Bend amount. Layer masks are transformed with their layer
 
 **Layer masks**
 - Layer ▸ Layer Mask: Reveal All, Hide All, Reveal/Hide Selection, Disable, Apply, Delete (or the mask button in the Layers panel)
@@ -103,8 +110,8 @@ Adjustments and filters apply to the active layer, limited to the selection when
 
 **Editing**
 - Undo/redo (last 60 steps) and a History panel to jump to any step
-- Free Transform (Ctrl+T, or Ctrl+Alt+T where the browser keeps Ctrl+T): scale, rotate and move a layer with handles
-- Edit ▸ Transform: flip or rotate the active layer
+- Free Transform (Ctrl+T, or Ctrl+Alt+T where the browser keeps Ctrl+T): scale, rotate, move, skew, distort, add perspective or warp a layer (see Retouching)
+- Edit ▸ Transform: also flip or rotate the active layer
 - Cut, copy, copy merged, paste (in place when pasting your own copy), clear and fill
 - Select all, deselect, reselect, inverse
 - Color panel with HSV picker, hex/RGB input and swatches
@@ -118,8 +125,9 @@ Press **?** inside the app for the full list of keyboard shortcuts. On a Mac, us
 - **Phase 3 (done):** lasso and magic wand, healing and clone tools, dodge/burn/sponge, blur/sharpen/smudge, type, shapes, layer masks, Free Transform, project files.
 - **Phase 4 (done):** layer groups, adjustment layers, layer styles, PSD open/save, offline use and installing, autosave and recovery.
 - **Phase 5 (done):** rulers, guides, grid and snapping; Select ▸ Modify, Color Range and Quick Mask; Navigator, Info and Histogram panels.
+- **Phase 6 (done):** Liquify, Content-Aware Fill, Skew/Distort/Perspective/Warp transforms and the Distort filters.
 
-Ideas for later: Liquify and Content-Aware Fill; perspective and warp transforms; distort filters; a Pen tool and vector shapes.
+Ideas for later: a Pen tool and vector shapes; the Patch and Content-Aware Move tools; smart objects and smart filters.
 
 Known limitation: adjustment layers are recalculated when the image is redrawn, so dragging whole layers in very large images (tens of megapixels) with adjustment layers above them can feel slow.
 
@@ -153,11 +161,13 @@ js/quick-mask.js      Quick Mask mode
 js/project.js         .pfp project save/open
 js/psd.js             Photoshop .psd reader and writer
 js/autosave.js        autosave to the browser and recovery
+js/content-aware.js   Content-Aware Fill (runs js/workers/inpaint-worker.js off the main thread)
 sw.js                 service worker (offline use); manifest.webmanifest and icons/ for installing
 tests/                Playwright browser tests
 js/core/              document model: layers and groups, selection, history, viewport, renderer,
-                      adjustments, filters, layer styles (effects.js), blend modes,
-                      transforms and the live-preview engine
+                      adjustments, filters, distortions (distort.js), layer styles (effects.js),
+                      blend modes, transforms, perspective and warp meshes (mesh-warp.js),
+                      Liquify (liquify.js), patch-based fill (inpaint.js) and the live-preview engine
 js/tools/             one file per tool family
 js/ui/                menu bar, toolbar, options bar, panels, dialogs
 ```

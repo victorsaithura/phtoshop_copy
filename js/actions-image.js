@@ -4,6 +4,9 @@ import { rotateDocument, flipDocument, cropDocument, transformLayer } from './co
 import { runPixelCommand } from './ui/adjust-dialog.js';
 import { editMask, editingMask } from './actions-mask.js';
 import { imageSizeDialog, canvasSizeDialog, rotateDialog, duplicateDialog } from './ui/image-dialogs.js';
+import { TRANSFORM_MODES } from './tools/free-transform.js';
+import { liquifyDialog } from './ui/liquify-dialog.js';
+import { contentAwareFill } from './content-aware.js';
 
 const ADJUSTMENT_SHORTCUTS = {
   levels: 'Ctrl+L',
@@ -47,6 +50,8 @@ export function registerImageActions(app, A) {
       onApplied: (params) => { app.lastFilter = { key, params }; },
     }), { enabled: hasLayer });
   }
+  def('filter.liquify', 'Liquify…', () => liquifyDialog(app), { enabled: hasLayer, shortcut: 'Ctrl+Shift+X' });
+  def('edit.contentAwareFill', 'Content-Aware Fill', () => contentAwareFill(app), { enabled: hasSel });
   def('filter.last', 'Last Filter', () => {
     const last = app.lastFilter;
     if (last) runPixelCommand(app, FILTERS[last.key], { id: `filter.${last.key}`, params: last.params });
@@ -76,5 +81,13 @@ export function registerImageActions(app, A) {
   ];
   for (const [kind, label] of transforms) {
     def(`transform.${kind}`, label, () => transformLayer(app, kind), { enabled: hasLayer });
+  }
+  // Skew, Distort, Perspective and Warp start Free Transform in that mode (or switch to it).
+  for (const mode of ['skew', 'distort', 'perspective', 'warp']) {
+    def(`transform.${mode}`, TRANSFORM_MODES[mode], () => {
+      const tool = app.tools.get('transform');
+      if (app.tool === tool && tool.t) tool.setMode(mode);
+      else if (tool.start(app.tool?.id, mode)) app.setTool('transform');
+    }, { enabled: hasLayer });
   }
 }

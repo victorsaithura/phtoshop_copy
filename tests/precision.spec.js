@@ -162,13 +162,14 @@ test('Quick Mask: the selection becomes a mask to paint, then a selection again'
   expect(await page.evaluate(() => !!photoforge.doc.quickMask)).toBe(true);
   expect(await page.evaluate(() => photoforge.doc.selection.isEmpty())).toBe(true);
   await expect(page.locator('.quick-mask-btn')).toHaveClass(/active/);
-  // The unselected area is tinted red on screen.
-  const tinted = await page.evaluate(() => {
+  // The unselected area is tinted red on screen (drawn on the next frame).
+  const redness = () => page.evaluate(() => {
     const p = photoforge.view.docToScreen(50, 50);
     const dpr = photoforge.renderer.dpr;
-    return [...photoforge.canvas.getContext('2d').getImageData(Math.round(p.x * dpr), Math.round(p.y * dpr), 1, 1).data];
+    const d = photoforge.canvas.getContext('2d').getImageData(Math.round(p.x * dpr), Math.round(p.y * dpr), 1, 1).data;
+    return d[0] - d[1];
   });
-  expect(tinted[0]).toBeGreaterThan(tinted[1] + 60);
+  await expect.poll(redness).toBeGreaterThan(60);
 
   // Paint white to add to the selection.
   await page.evaluate(() => photoforge.setColor('fg', '#ffffff'));

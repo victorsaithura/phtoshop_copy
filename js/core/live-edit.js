@@ -57,6 +57,7 @@ export class LiveEdit {
       bg: this.app.colors.bg,
       mask: this.mask,
       region: this.region,
+      selection: this.doc.selection.isEmpty() ? null : { ...this.doc.selection.bounds },
       docWidth: this.doc.width,
       docHeight: this.doc.height,
     };

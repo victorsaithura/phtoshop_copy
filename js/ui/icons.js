@@ -58,6 +58,15 @@ const P = {
   close: '<path d="M18 6 6 18M6 6l12 12"/>',
   chevron: '<path d="m6 9 6 6 6-6"/>',
   panels: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
+  'lq-warp': '<path d="M4 19c3-8 9-11 16-12"/><path d="m15 3 5 4-4 4"/>',
+  'lq-reconstruct': '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  'lq-smooth': '<path d="M3 9c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/><path d="M3 16h18"/>',
+  'lq-twirl': '<path d="M10.5 12a1.5 1.5 0 0 1 3 0a3 3 0 0 1-6 0a4.5 4.5 0 0 1 9 0a6 6 0 0 1-12 0"/>',
+  'lq-pucker': '<path d="m4 4 5 5M20 4l-5 5M4 20l5-5M20 20l-5-5"/><path d="M9 5v4H5M15 5v4h4M9 19v-4H5M15 19v-4h4"/>',
+  'lq-bloat': '<circle cx="12" cy="12" r="3"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><path d="m9 4 3-2 3 2M9 20l3 2 3-2M4 9l-2 3 2 3M20 9l2 3-2 3"/>',
+  'lq-push': '<path d="M20 5v14"/><path d="M16 12H4M8 8l-4 4 4 4"/>',
+  'lq-freeze': '<path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7"/><path d="m9 4 3 2 3-2M9 20l3-2 3 2"/>',
+  'lq-thaw': '<path d="M12 22a6 6 0 0 0 6-6c0-4-6-12-6-12S6 12 6 16a6 6 0 0 0 6 6z"/>',
 };
 
 const NS = 'http://www.w3.org/2000/svg';

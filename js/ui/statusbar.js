@@ -21,7 +21,7 @@ const HINTS = {
   'shape-ellipse': 'Drag to draw an ellipse on a new layer. Shift = circle, Alt = from centre.',
   'shape-polygon': 'Drag to draw a polygon on a new layer. Set the number of sides in the options bar.',
   'shape-line': 'Drag to draw a line on a new layer. Shift keeps it at 45° steps.',
-  transform: 'Drag a handle to scale (Shift: free), inside to move, outside to rotate. Enter applies, Esc cancels.',
+  transform: 'Drag a handle to scale (Shift: free), inside to move, outside to rotate; Ctrl-drag a corner to distort. Enter applies, Esc cancels.',
   crop: 'Drag the handles to set the crop or drag outside it for a new box. Enter or double-click crops, Esc resets.',
   eyedropper: 'Click to pick the foreground colour. Alt-click picks the background colour.',
   brush: 'Paint with the foreground colour. [ ] change size, Shift-click draws a straight line, Alt picks a colour.',
@@ -60,7 +60,10 @@ export class StatusBar {
     app.on('cursor', (ev) => {
       this.pos.textContent = ev && app.doc ? `X: ${Math.floor(ev.x)}  Y: ${Math.floor(ev.y)}` : '';
     });
-    app.on('tool', (tool) => { this.hint.textContent = HINTS[tool.id] || ''; });
+    // A tool may describe its current mode itself (Free Transform's Warp…).
+    const hint = (tool) => { this.hint.textContent = tool?.hint?.() || HINTS[tool?.id] || ''; };
+    app.on('tool', hint);
+    app.on('tool-options', () => hint(app.tool));
     this._sync();
   }
 
