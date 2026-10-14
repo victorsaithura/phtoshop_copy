@@ -54,14 +54,17 @@ test('monkey test: every tool and every command, then undo and redo everything',
     return Math.floor((seed / 233280) * n);
   };
   const toolIds = await page.evaluate(() => [...photoforge.tools.keys()].filter((id) => id !== 'transform'));
+  // Each tool and command is a step, so a failure names the one it happened in.
   for (const id of toolIds) {
-    await page.evaluate((id) => photoforge.setTool(id), id);
-    for (let i = 0; i < 2; i++) await drag(page, [rnd(600), rnd(400)], [rnd(600), rnd(400)], { steps: 5 });
-    await clickDoc(page, rnd(600), rnd(400));
-    if (id === 'text') await page.keyboard.type('Hi');
-    await page.keyboard.press('Enter');
-    await page.keyboard.press('Escape');
-    await page.mouse.move(0, 0);
+    await test.step(`tool ${id}`, async () => {
+      await page.evaluate((id) => photoforge.setTool(id), id);
+      for (let i = 0; i < 2; i++) await drag(page, [rnd(600), rnd(400)], [rnd(600), rnd(400)], { steps: 5 });
+      await clickDoc(page, rnd(600), rnd(400));
+      if (id === 'text') await page.keyboard.type('Hi');
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('Escape');
+      await page.mouse.move(0, 0);
+    });
   }
   // Free Transform round.
   await page.evaluate(() => photoforge.setTool('move'));
@@ -78,21 +81,23 @@ test('monkey test: every tool and every command, then undo and redo everything',
   const ids = await page.evaluate(() => Object.keys(photoforge.actions));
   for (const id of ids) {
     if (skip.test(id)) continue;
-    const ran = await page.evaluate((id) => {
-      const a = photoforge.actions[id];
-      if (a.enabled && !a.enabled()) return false;
-      a.run();
-      return true;
-    }, id);
-    if (!ran) continue;
-    // Commands that work in the background (Content-Aware Fill) show progress until done.
-    await page.waitForFunction(() => !document.querySelector('.modal.busy'), null, { timeout: 30_000 });
-    // Close any dialog the command opened (OK for some, Cancel for others).
-    if (await page.locator('.modal').count()) {
-      if (rnd(2)) await page.click('.modal .btn-primary');
-      else await page.keyboard.press('Escape');
-    }
-    await page.evaluate(() => photoforge.tool?.id === 'transform' && photoforge.tool.commit());
+    await test.step(`command ${id}`, async () => {
+      const ran = await page.evaluate((id) => {
+        const a = photoforge.actions[id];
+        if (a.enabled && !a.enabled()) return false;
+        a.run();
+        return true;
+      }, id);
+      if (!ran) return;
+      // Commands that work in the background (Content-Aware Fill) show progress until done.
+      await page.waitForFunction(() => !document.querySelector('.modal.busy'), null, { timeout: 30_000 });
+      // Close any dialog the command opened (OK for some, Cancel for others).
+      if (await page.locator('.modal').count()) {
+        if (rnd(2)) await page.click('.modal .btn-primary');
+        else await page.keyboard.press('Escape');
+      }
+      await page.evaluate(() => photoforge.tool?.id === 'transform' && photoforge.tool.commit());
+    });
   }
 
   const states = await page.evaluate(() => photoforge.history.entries.length);
