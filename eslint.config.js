@@ -26,6 +26,11 @@ export default [
     },
   },
   {
+    // Module workers.
+    files: ['js/workers/**/*.js'],
+    languageOptions: { globals: { ...globals.worker } },
+  },
+  {
     // Tests run in Node; callbacks passed to page.evaluate run in the app page.
     files: ['tests/**/*.js', '*.config.js'],
     languageOptions: {

@@ -8,8 +8,9 @@ export const MENUS = [
   {
     label: 'Edit',
     items: ['edit.undo', 'edit.redo', '-', 'edit.cut', 'edit.copy', 'edit.copyMerged', 'edit.paste', 'edit.clear', '-',
-      'edit.fill', 'edit.fillFg', 'edit.fillBg', '-', 'edit.freeTransform',
-      { label: 'Transform', items: ['transform.flipH', 'transform.flipV', '-', 'transform.rot180', 'transform.rot90cw', 'transform.rot90ccw'] }],
+      'edit.fill', 'edit.contentAwareFill', 'edit.fillFg', 'edit.fillBg', '-', 'edit.freeTransform',
+      { label: 'Transform', items: ['transform.skew', 'transform.distort', 'transform.perspective', 'transform.warp', '-',
+        'transform.rot180', 'transform.rot90cw', 'transform.rot90ccw', '-', 'transform.flipH', 'transform.flipV'] }],
   },
   {
     label: 'Image',
@@ -54,8 +55,10 @@ export const MENUS = [
   },
   {
     label: 'Filter',
-    items: ['filter.last', '-',
+    items: ['filter.last', '-', 'filter.liquify', '-',
       { label: 'Blur', items: ['filter.gaussianBlur', 'filter.motionBlur', 'filter.boxBlur'] },
+      { label: 'Distort', items: ['filter.pinch', 'filter.polarCoordinates', 'filter.ripple', 'filter.spherize',
+        'filter.twirl', 'filter.wave', 'filter.zigzag'] },
       { label: 'Noise', items: ['filter.addNoise'] },
       { label: 'Pixelate', items: ['filter.mosaic'] },
       { label: 'Render', items: ['filter.vignette'] },

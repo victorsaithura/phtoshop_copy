@@ -12,6 +12,7 @@ import { editMask, editingMask, maskValue } from './actions-mask.js';
 import { maskedPixels } from './core/mask.js';
 import { saveProject } from './project.js';
 import { writePSD } from './psd.js';
+import { contentAwareFill } from './content-aware.js';
 
 /**
  * Every menu command, keyed by id. Each action has a label, run(), optional
@@ -229,7 +230,7 @@ export function createActions(app, getMenus) {
     if (app.tool === tool) return;
     if (tool.start(app.tool?.id)) app.setTool('transform');
   }, { enabled: hasDoc, shortcut: 'Ctrl+T', keys: ['Ctrl+T', 'Ctrl+Alt+T'] });
-  def('edit.fill', 'Fill…', () => fillDialog(app, (color, opacity, mode) => fill(color, opacity, mode)),
+  def('edit.fill', 'Fill…', () => fillDialog(app, (color, opacity, mode) => fill(color, opacity, mode), () => contentAwareFill(app)),
     { enabled: hasDoc, shortcut: 'Shift+F5', keys: ['Shift+F5', 'Shift+Backspace'] });
   def('edit.fillFg', 'Fill with Foreground Color', () => fill(app.colors.fg),
     { enabled: hasDoc, shortcut: 'Alt+Backspace', keys: ['Alt+Backspace', 'Alt+Delete'] });

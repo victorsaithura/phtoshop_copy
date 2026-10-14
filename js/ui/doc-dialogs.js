@@ -127,30 +127,37 @@ export function exportDialog(app) {
   });
 }
 
-/** Edit ▸ Fill… — onFill(color, opacity, blendMode). */
-export function fillDialog(app, onFill) {
+/**
+ * Edit ▸ Fill… — onFill(color, opacity, blendMode). With a selection,
+ * Contents also offers Content-Aware, which calls onContentAware().
+ */
+export function fillDialog(app, onFill, onContentAware = null) {
+  const aware = onContentAware && !app.doc.selection.isEmpty();
   const contents = h('select', { value: 'fg' },
     h('option', { value: 'fg' }, 'Foreground Color'),
     h('option', { value: 'bg' }, 'Background Color'),
     h('option', { value: 'custom' }, 'Color…'),
+    aware ? h('option', { value: 'content-aware' }, 'Content-Aware') : null,
     h('option', { value: '#000000' }, 'Black'),
     h('option', { value: '#808080' }, '50% Gray'),
     h('option', { value: '#ffffff' }, 'White'));
   const picker = new ColorPicker({ color: app.colors.fg, svHeight: 110 });
   picker.el.hidden = true;
-  contents.addEventListener('change', () => { picker.el.hidden = contents.value !== 'custom'; });
   const mode = h('select', { value: 'source-over' },
     BLEND_MODES.filter(Boolean).map((m) => h('option', { value: m.value }, m.label)));
   const opacity = h('input', { type: 'number', min: 1, max: 100, value: 100 });
+  const modeRow = row('Mode', mode);
+  const opacityRow = row('Opacity (%)', opacity);
+  contents.addEventListener('change', () => {
+    picker.el.hidden = contents.value !== 'custom';
+    // Content-Aware fills with texture, so mode and opacity don't apply.
+    modeRow.hidden = opacityRow.hidden = contents.value === 'content-aware';
+  });
 
   openModal({
     title: 'Fill',
     width: 380,
-    body: h('div', {},
-      row('Contents', contents),
-      picker.el,
-      row('Mode', mode),
-      row('Opacity (%)', opacity)),
+    body: h('div', {}, row('Contents', contents), picker.el, modeRow, opacityRow),
     buttons: [
       { label: 'Cancel' },
       {
@@ -158,6 +165,11 @@ export function fillDialog(app, onFill) {
         primary: true,
         onClick: () => {
           const v = contents.value;
+          if (v === 'content-aware') {
+            // Let this dialog close before the fill opens its progress dialog.
+            setTimeout(onContentAware);
+            return;
+          }
           const color = v === 'fg' ? app.colors.fg : v === 'bg' ? app.colors.bg : v === 'custom' ? picker.color : v;
           onFill(color, Math.min(100, Math.max(1, Number(opacity.value) || 100)) / 100, mode.value);
         },

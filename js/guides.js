@@ -230,7 +230,9 @@ export class GuideController {
     const { app } = this;
     const o = app.viewOptions;
     if (!o.guides || o.lockGuides || !app.doc) return null;
-    if (app.tool?.id !== 'move' && !ev.ctrl) return null;
+    // Ctrl reaches guides from any tool, except Free Transform where it means Distort.
+    const tool = app.tool?.id;
+    if (tool !== 'move' && (!ev.ctrl || tool === 'transform')) return null;
     const v = app.view;
     let best = null;
     let bestD = 4;

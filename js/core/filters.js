@@ -1,5 +1,6 @@
 import { clamp255, copyImageData, luma, mulberry32 } from './pixels.js';
 import { createCanvas } from './utils.js';
+import { DISTORT_FILTERS } from './distort.js';
 
 /* ---------- Blur building blocks ---------- */
 
@@ -365,4 +366,5 @@ export const FILTERS = {
     margin: (p) => Math.ceil(p.radius * 3),
     apply: (img, p) => highPass(img, p.radius),
   },
+  ...DISTORT_FILTERS,
 };

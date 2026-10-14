@@ -85,6 +85,8 @@ test('monkey test: every tool and every command, then undo and redo everything',
       return true;
     }, id);
     if (!ran) continue;
+    // Commands that work in the background (Content-Aware Fill) show progress until done.
+    await page.waitForFunction(() => !document.querySelector('.modal.busy'), null, { timeout: 30_000 });
     // Close any dialog the command opened (OK for some, Cancel for others).
     if (await page.locator('.modal').count()) {
       if (rnd(2)) await page.click('.modal .btn-primary');

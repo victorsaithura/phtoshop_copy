@@ -407,3 +407,25 @@ select { padding: 0 4px; cursor: pointer; }
 .histo-panel { display: flex; flex-direction: column; gap: 6px; }
 .histo-canvas { width: 100%; height: auto; image-rendering: pixelated; border: 1px solid var(--border); }
 .histo-stats { color: var(--text-dim); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+/* ---------- Liquify ---------- */
+.liquify { display: grid; grid-template-columns: auto minmax(0, 1fr) 220px; gap: 10px; height: min(74vh, 700px); }
+.lq-tools { display: flex; flex-direction: column; gap: 4px; }
+.lq-tools .icon-btn { width: 32px; height: 32px; }
+.lq-tools .icon-btn.active { background: var(--accent); color: #fff; }
+.lq-view { position: relative; overflow: hidden; min-height: 240px; background: #262626; border: 1px solid #111; border-radius: 3px; touch-action: none; }
+.lq-view canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.lq-overlay:focus { outline: none; }
+.lq-props { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 2px; }
+.lq-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lq-zoom-label { min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) {
+  .liquify { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(260px, 1fr) auto; height: calc(100dvh - 150px); }
+  .lq-tools { flex-direction: row; flex-wrap: wrap; }
+  .lq-props { max-height: 30vh; }
+}
+
+/* ---------- Progress ---------- */
+.progress-wrap { padding: 6px 0 2px; }
+.progress { height: 8px; overflow: hidden; background: var(--bg-input); border: 1px solid #111; border-radius: 4px; }
+.progress-fill { width: 0; height: 100%; background: var(--accent); transition: width 0.15s; }
